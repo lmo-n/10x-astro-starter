@@ -22,6 +22,7 @@ const baseConfig = tseslint.config({
   rules: {
     "no-console": "warn",
     "no-unused-vars": "off",
+    "linebreak-style": ["error", "windows"],
     "@typescript-eslint/no-unused-vars": [
       "error",
       {
@@ -35,7 +36,6 @@ const baseConfig = tseslint.config({
     "@typescript-eslint/restrict-template-expressions": ["error", { allowNumber: true }],
     "@typescript-eslint/no-misused-promises": ["error", { checksVoidReturn: { attributes: false } }],
   },
-  "linebreak-style": ["error", "windows"],
 });
 
 const reactConfig = tseslint.config({
