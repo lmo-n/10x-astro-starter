@@ -1,0 +1,5 @@
+- **Framework:** Astro 6 SSR using React 19 Islands.
+- **Styling / UI:** Tailwind CSS v4, shadcn/ui components.
+- **Backend / Database / Auth:** Supabase.
+- **Deployment:** Cloudflare Workers.
+- **AI Models:** OpenAI API (GPT-4o-mini) or Anthropic (Claude 3 Haiku). API communication will be handled directly on the frontend.
