@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createDeck, renameDeck, DeckServiceError, DECK_LIMIT } from "./deck.service";
+import { createDeck, listDecks, renameDeck, DeckServiceError, DECK_LIMIT } from "./deck.service";
+import type { ListDecksInput } from "@/lib/validation/decks";
 
 interface PostgrestLikeError {
   message: string;
@@ -230,5 +231,229 @@ describe("renameDeck", () => {
     await expect(renameDeck(client, "user-1", "deck-1", { name: "Genetics" })).rejects.toMatchObject({
       code: "DECK_UPDATE_FAILED",
     });
+  });
+});
+
+// -----------------------------------------------------------------------------
+// listDecks
+// -----------------------------------------------------------------------------
+
+interface QueryResult {
+  data?: unknown;
+  count?: number | null;
+  error: PostgrestLikeError | null;
+}
+
+/**
+ * A chainable, awaitable Supabase query-builder stub. Every chain method
+ * (`select`, `eq`, `ilike`, `or`, `order`, `in`, `limit`) returns the same
+ * builder, and awaiting the builder at any point resolves to `result`.
+ */
+function makeBuilder(result: QueryResult) {
+  const builder: Record<string, unknown> = {};
+  for (const method of ["select", "eq", "ilike", "or", "order", "in", "limit"]) {
+    builder[method] = vi.fn(() => builder);
+  }
+  builder.then = (resolve: (value: QueryResult) => unknown, reject: (reason: unknown) => unknown) =>
+    Promise.resolve(result).then(resolve, reject);
+  return builder;
+}
+
+/**
+ * Build a mock for the three query chains used by `listDecks`, in call order:
+ *   1. main decks query   → `from("decks")` (1st)
+ *   2. flashcards counters → `from("flashcards")`
+ *   3. total deck count    → `from("decks")` (2nd)
+ */
+function makeListSupabase(
+  decksResult: QueryResult,
+  flashcardsResult: QueryResult = { data: [], error: null },
+  countResult: QueryResult = { count: 0, error: null },
+) {
+  const decksBuilder = makeBuilder(decksResult);
+  const flashcardsBuilder = makeBuilder(flashcardsResult);
+  const countBuilder = makeBuilder(countResult);
+
+  let deckCall = 0;
+  const from = vi.fn((table: string) => {
+    if (table === "flashcards") {
+      return flashcardsBuilder;
+    }
+    deckCall += 1;
+    return deckCall === 1 ? decksBuilder : countBuilder;
+  });
+
+  const client = { from } as unknown as SupabaseClient;
+  return { client, decksBuilder, flashcardsBuilder, countBuilder, from };
+}
+
+const DEFAULT_QUERY: ListDecksInput = { limit: 20, sort: "createdAt", order: "desc" };
+
+const DECK_ROW_A = {
+  id: "deck-a",
+  name: "Biology 101",
+  created_at: "2026-06-10T10:00:00.000Z",
+  updated_at: "2026-06-10T10:00:00.000Z",
+};
+const DECK_ROW_B = {
+  id: "deck-b",
+  name: "Chemistry",
+  created_at: "2026-06-11T10:00:00.000Z",
+  updated_at: "2026-06-11T10:00:00.000Z",
+};
+
+describe("listDecks", () => {
+  it("returns decks with merged counters, no next page, and limits", async () => {
+    const { client, decksBuilder } = makeListSupabase(
+      { data: [DECK_ROW_A, DECK_ROW_B], error: null },
+      {
+        data: [
+          { deck_id: "deck-a", due_at: "2020-01-01" }, // due (past)
+          { deck_id: "deck-a", due_at: "2999-01-01" }, // not due (future)
+          { deck_id: "deck-b", due_at: "2020-01-01" }, // due (past)
+        ],
+        error: null,
+      },
+      { count: 2, error: null },
+    );
+
+    const result = await listDecks(client, "user-1", DEFAULT_QUERY);
+
+    expect(result.data).toEqual([
+      {
+        id: "deck-a",
+        name: "Biology 101",
+        createdAt: "2026-06-10T10:00:00.000Z",
+        updatedAt: "2026-06-10T10:00:00.000Z",
+        flashcardsCount: 2,
+        dueFlashcardsCount: 1,
+      },
+      {
+        id: "deck-b",
+        name: "Chemistry",
+        createdAt: "2026-06-11T10:00:00.000Z",
+        updatedAt: "2026-06-11T10:00:00.000Z",
+        flashcardsCount: 1,
+        dueFlashcardsCount: 1,
+      },
+    ]);
+    expect(result.pagination).toEqual({ nextCursor: null, hasMore: false });
+    expect(result.limits).toEqual({ deckCount: 2, deckLimit: DECK_LIMIT, canCreateDeck: true });
+
+    // Default ordering: sort column desc, then id desc, fetching limit + 1 rows.
+    expect(decksBuilder.order).toHaveBeenNthCalledWith(1, "created_at", { ascending: false });
+    expect(decksBuilder.order).toHaveBeenNthCalledWith(2, "id", { ascending: false });
+    expect(decksBuilder.limit).toHaveBeenCalledWith(21);
+  });
+
+  it("sets hasMore and encodes a usable nextCursor when an extra row exists", async () => {
+    const { client } = makeListSupabase(
+      { data: [DECK_ROW_A, DECK_ROW_B], error: null }, // 2 rows for limit 1 → extra row
+      { data: [], error: null },
+      { count: 2, error: null },
+    );
+
+    const result = await listDecks(client, "user-1", { limit: 1, sort: "createdAt", order: "desc" });
+
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].id).toBe("deck-a");
+    expect(result.pagination.hasMore).toBe(true);
+    expect(result.pagination.nextCursor).toBeTypeOf("string");
+
+    // The cursor must decode to the last returned row's keyset anchor.
+    const decoded = JSON.parse(Buffer.from(result.pagination.nextCursor ?? "", "base64").toString("utf8")) as {
+      sort: string;
+      order: string;
+      value: string;
+      id: string;
+    };
+    expect(decoded).toEqual({
+      sort: "createdAt",
+      order: "desc",
+      value: DECK_ROW_A.created_at,
+      id: "deck-a",
+    });
+  });
+
+  it("applies a case-insensitive search filter", async () => {
+    const { client, decksBuilder } = makeListSupabase({ data: [], error: null });
+
+    await listDecks(client, "user-1", { ...DEFAULT_QUERY, search: "bio" });
+
+    expect(decksBuilder.ilike).toHaveBeenCalledWith("name", "%bio%");
+  });
+
+  it("applies the keyset predicate derived from a valid cursor", async () => {
+    const cursor = Buffer.from(
+      JSON.stringify({ sort: "createdAt", order: "desc", value: DECK_ROW_A.created_at, id: "deck-a" }),
+      "utf8",
+    ).toString("base64");
+
+    const { client, decksBuilder } = makeListSupabase({ data: [], error: null });
+
+    await listDecks(client, "user-1", { ...DEFAULT_QUERY, cursor });
+
+    expect(decksBuilder.or).toHaveBeenCalledWith(
+      `created_at.lt.${DECK_ROW_A.created_at},and(created_at.eq.${DECK_ROW_A.created_at},id.lt.deck-a)`,
+    );
+  });
+
+  it("throws INVALID_QUERY for a malformed cursor", async () => {
+    const { client } = makeListSupabase({ data: [], error: null });
+
+    await expect(listDecks(client, "user-1", { ...DEFAULT_QUERY, cursor: "%%%not-base64-json" })).rejects.toMatchObject(
+      { code: "INVALID_QUERY" },
+    );
+  });
+
+  it("throws INVALID_QUERY when the cursor's sort/order does not match the query", async () => {
+    const cursor = Buffer.from(
+      JSON.stringify({ sort: "name", order: "asc", value: "x", id: "deck-a" }),
+      "utf8",
+    ).toString("base64");
+
+    const { client } = makeListSupabase({ data: [], error: null });
+
+    await expect(listDecks(client, "user-1", { ...DEFAULT_QUERY, cursor })).rejects.toMatchObject({
+      code: "INVALID_QUERY",
+    });
+  });
+
+  it("throws DECK_LIST_FAILED when the main query fails", async () => {
+    const { client } = makeListSupabase({ data: null, error: { message: "select failed" } });
+
+    await expect(listDecks(client, "user-1", DEFAULT_QUERY)).rejects.toMatchObject({ code: "DECK_LIST_FAILED" });
+  });
+
+  it("throws DECK_LIST_FAILED when the counters aggregate fails", async () => {
+    const { client } = makeListSupabase(
+      { data: [DECK_ROW_A], error: null },
+      { data: null, error: { message: "aggregate failed" } },
+    );
+
+    await expect(listDecks(client, "user-1", DEFAULT_QUERY)).rejects.toMatchObject({ code: "DECK_LIST_FAILED" });
+  });
+
+  it("throws DECK_LIST_FAILED when the total count query fails", async () => {
+    const { client } = makeListSupabase(
+      { data: [DECK_ROW_A], error: null },
+      { data: [], error: null },
+      { count: null, error: { message: "count failed" } },
+    );
+
+    await expect(listDecks(client, "user-1", DEFAULT_QUERY)).rejects.toMatchObject({ code: "DECK_LIST_FAILED" });
+  });
+
+  it("reports canCreateDeck=false at the deck limit", async () => {
+    const { client } = makeListSupabase(
+      { data: [], error: null },
+      { data: [], error: null },
+      { count: DECK_LIMIT, error: null },
+    );
+
+    const result = await listDecks(client, "user-1", DEFAULT_QUERY);
+
+    expect(result.limits.canCreateDeck).toBe(false);
+    expect(result.limits.deckCount).toBe(DECK_LIMIT);
   });
 });

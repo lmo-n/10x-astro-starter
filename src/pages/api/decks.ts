@@ -2,9 +2,9 @@ import type { APIRoute } from "astro";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase";
 import { jsonError, jsonOk } from "@/lib/api/responses";
-import { createDeckSchema } from "@/lib/validation/decks";
-import { createDeck, DeckServiceError } from "@/lib/services/deck.service";
-import type { CreateDeckCommand, CreateDeckResponseDto } from "@/types";
+import { createDeckSchema, listDecksQuerySchema } from "@/lib/validation/decks";
+import { createDeck, listDecks, DeckServiceError } from "@/lib/services/deck.service";
+import type { CreateDeckCommand, CreateDeckResponseDto, ListDecksResponseDto } from "@/types";
 
 // SSR route: must not be prerendered so it runs per-request on Cloudflare Workers.
 export const prerender = false;
@@ -89,5 +89,60 @@ export const POST: APIRoute = async (context) => {
     // eslint-disable-next-line no-console
     console.error("[POST /api/decks] unexpected error:", error);
     return jsonError(500, "DECK_CREATE_FAILED", "Failed to create deck.");
+  }
+};
+
+/**
+ * GET /api/decks — list the authenticated user's decks (paginated/sortable/searchable).
+ *
+ * Flow:
+ *  1. Require an authenticated session (`context.locals.user`) → 401 otherwise.
+ *  2. Create the Supabase client → 500 `CONFIG_ERROR` when not configured.
+ *  3. Parse + validate the query string with Zod → 400 `INVALID_QUERY` on failure.
+ *  4. Delegate to `listDecks` and map domain errors to HTTP statuses.
+ *  5. Return 200 with `ListDecksResponseDto`.
+ *
+ * No CSRF/same-origin check: GET is a safe, read-only method.
+ */
+export const GET: APIRoute = async (context) => {
+  // 1. Authentication — verify the session in the route, not just middleware.
+  const user = context.locals.user;
+  if (!user) {
+    return jsonError(401, "AUTH_REQUIRED", "Authentication is required to list decks.");
+  }
+
+  // 2. Supabase client — guard against missing configuration.
+  const supabase = createClient(context.request.headers, context.cookies);
+  if (!supabase) {
+    return jsonError(500, "CONFIG_ERROR", "The server is not configured correctly.");
+  }
+
+  // 3. Query parsing + validation. Unknown params are ignored; recognized ones
+  //    must pass validation.
+  const searchParams = new URL(context.request.url).searchParams;
+  const parsed = listDecksQuerySchema.safeParse(Object.fromEntries(searchParams));
+  if (!parsed.success) {
+    return jsonError(400, "INVALID_QUERY", "Query parameters are invalid.", {
+      issues: z.treeifyError(parsed.error),
+    });
+  }
+
+  // 4. List the decks and map domain errors to HTTP responses.
+  try {
+    const result: ListDecksResponseDto = await listDecks(supabase, user.id, parsed.data);
+    // 5. Success.
+    return jsonOk(result, 200);
+  } catch (error) {
+    if (error instanceof DeckServiceError) {
+      if (error.code === "INVALID_QUERY") {
+        return jsonError(400, "INVALID_QUERY", error.message);
+      }
+      // eslint-disable-next-line no-console
+      console.error("[GET /api/decks] deck listing failed:", error.cause ?? error);
+      return jsonError(500, "DECK_LIST_FAILED", "Failed to list decks.");
+    }
+    // eslint-disable-next-line no-console
+    console.error("[GET /api/decks] unexpected error:", error);
+    return jsonError(500, "DECK_LIST_FAILED", "Failed to list decks.");
   }
 };

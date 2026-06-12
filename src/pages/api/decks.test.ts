@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { APIContext } from "astro";
-import type { CreateDeckResponseDto } from "@/types";
+import type { CreateDeckResponseDto, ListDecksResponseDto } from "@/types";
 
 // --- Mocks -------------------------------------------------------------------
 // `@/lib/supabase` pulls in `astro:env/server`, a virtual module unavailable in
@@ -13,15 +13,17 @@ vi.mock("@/lib/supabase", () => ({
 }));
 
 const createDeckMock = vi.fn();
+const listDecksMock = vi.fn();
 vi.mock("@/lib/services/deck.service", async () => {
   const actual = await vi.importActual<typeof import("@/lib/services/deck.service")>("@/lib/services/deck.service");
   return {
     ...actual,
     createDeck: (...args: unknown[]): unknown => createDeckMock(...args) as unknown,
+    listDecks: (...args: unknown[]): unknown => listDecksMock(...args) as unknown,
   };
 });
 
-import { POST } from "./decks";
+import { GET, POST } from "./decks";
 import { DeckServiceError } from "@/lib/services/deck.service";
 
 interface ContextOptions {
@@ -77,10 +79,26 @@ const SUCCESS_RESULT: CreateDeckResponseDto = {
   limits: { deckCount: 1, deckLimit: 120, canCreateDeck: true },
 };
 
+const LIST_SUCCESS_RESULT: ListDecksResponseDto = {
+  data: [
+    {
+      id: "deck-1",
+      name: "Biology 101",
+      createdAt: "2026-06-12T10:00:00.000Z",
+      updatedAt: "2026-06-12T10:00:00.000Z",
+      flashcardsCount: 3,
+      dueFlashcardsCount: 1,
+    },
+  ],
+  pagination: { nextCursor: null, hasMore: false },
+  limits: { deckCount: 1, deckLimit: 120, canCreateDeck: true },
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   createClientMock.mockReturnValue(FAKE_SUPABASE);
   createDeckMock.mockResolvedValue(SUCCESS_RESULT);
+  listDecksMock.mockResolvedValue(LIST_SUCCESS_RESULT);
 });
 
 describe("POST /api/decks", () => {
@@ -179,5 +197,112 @@ describe("POST /api/decks", () => {
     expect(response.status).toBe(500);
     const json = await readError(response);
     expect(json.error.code).toBe("DECK_CREATE_FAILED");
+  });
+});
+
+describe("GET /api/decks", () => {
+  it("returns 200 with the deck list on success", async () => {
+    const response = await GET(makeContext({ url: "https://app.example.com/api/decks" }));
+
+    expect(response.status).toBe(200);
+    const json = (await response.json()) as ListDecksResponseDto;
+    expect(json).toEqual(LIST_SUCCESS_RESULT);
+  });
+
+  it("parses and forwards validated/defaulted query parameters", async () => {
+    await GET(makeContext({ url: "https://app.example.com/api/decks?limit=5&sort=name&order=asc&search=bio" }));
+
+    expect(listDecksMock).toHaveBeenCalledWith(FAKE_SUPABASE, "user-1", {
+      limit: 5,
+      sort: "name",
+      order: "asc",
+      search: "bio",
+    });
+  });
+
+  it("applies defaults when no query parameters are provided", async () => {
+    await GET(makeContext({ url: "https://app.example.com/api/decks" }));
+
+    expect(listDecksMock).toHaveBeenCalledWith(FAKE_SUPABASE, "user-1", {
+      limit: 20,
+      sort: "createdAt",
+      order: "desc",
+    });
+  });
+
+  it("ignores unknown query parameters", async () => {
+    await GET(makeContext({ url: "https://app.example.com/api/decks?foo=bar&limit=10" }));
+
+    expect(listDecksMock).toHaveBeenCalledWith(FAKE_SUPABASE, "user-1", {
+      limit: 10,
+      sort: "createdAt",
+      order: "desc",
+    });
+  });
+
+  it("returns 401 when the user is not authenticated", async () => {
+    const response = await GET(makeContext({ user: null }));
+
+    expect(response.status).toBe(401);
+    const json = await readError(response);
+    expect(json.error.code).toBe("AUTH_REQUIRED");
+    expect(listDecksMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 500 CONFIG_ERROR when Supabase is not configured", async () => {
+    createClientMock.mockReturnValue(null);
+
+    const response = await GET(makeContext());
+
+    expect(response.status).toBe(500);
+    const json = await readError(response);
+    expect(json.error.code).toBe("CONFIG_ERROR");
+  });
+
+  it("returns 400 INVALID_QUERY for an out-of-range limit", async () => {
+    const response = await GET(makeContext({ url: "https://app.example.com/api/decks?limit=0" }));
+
+    expect(response.status).toBe(400);
+    const json = await readError(response);
+    expect(json.error.code).toBe("INVALID_QUERY");
+    expect(listDecksMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 INVALID_QUERY for a non-whitelisted sort value", async () => {
+    const response = await GET(makeContext({ url: "https://app.example.com/api/decks?sort=secret_column" }));
+
+    expect(response.status).toBe(400);
+    const json = await readError(response);
+    expect(json.error.code).toBe("INVALID_QUERY");
+  });
+
+  it("returns 400 INVALID_QUERY when the service rejects the cursor", async () => {
+    listDecksMock.mockRejectedValue(new DeckServiceError("INVALID_QUERY", "Invalid pagination cursor."));
+
+    const response = await GET(makeContext({ url: "https://app.example.com/api/decks?cursor=bad" }));
+
+    expect(response.status).toBe(400);
+    const json = await readError(response);
+    expect(json.error.code).toBe("INVALID_QUERY");
+  });
+
+  it("returns 500 DECK_LIST_FAILED on a generic service failure", async () => {
+    listDecksMock.mockRejectedValue(new DeckServiceError("DECK_LIST_FAILED", "boom"));
+
+    const response = await GET(makeContext());
+
+    expect(response.status).toBe(500);
+    const json = await readError(response);
+    expect(json.error.code).toBe("DECK_LIST_FAILED");
+  });
+
+  it("returns 500 DECK_LIST_FAILED on an unexpected error", async () => {
+    listDecksMock.mockRejectedValue(new Error("unexpected"));
+
+    const response = await GET(makeContext());
+
+    expect(response.status).toBe(500);
+    const json = await readError(response);
+    expect(json.error.code).toBe("DECK_LIST_FAILED");
   });
 });
