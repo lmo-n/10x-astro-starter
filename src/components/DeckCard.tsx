@@ -1,0 +1,187 @@
+import { useState, useRef, useEffect } from "react";
+import type { DeckDto } from "@/types";
+
+interface Props {
+  deck: DeckDto;
+}
+
+export default function DeckCard({ deck }: Props) {
+  const [name, setName] = useState(deck.name);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(deck.name);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
+  function startEdit() {
+    setDraft(name);
+    setError(null);
+    setEditing(true);
+  }
+
+  function cancelEdit() {
+    setEditing(false);
+    setError(null);
+  }
+
+  async function saveEdit() {
+    const trimmed = draft.trim();
+    if (!trimmed) {
+      setError("Deck name must not be empty.");
+      return;
+    }
+    if (trimmed.length > 100) {
+      setError("Deck name must be at most 100 characters.");
+      return;
+    }
+    if (trimmed === name) {
+      setEditing(false);
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/decks/${deck.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      });
+
+      if (!res.ok) {
+        const body: { error?: { message?: string } } = (await res.json().catch(() => ({}))) as {
+          error?: { message?: string };
+        };
+        setError(body.error?.message ?? "Failed to rename deck.");
+        return;
+      }
+
+      setName(trimmed);
+      setEditing(false);
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") void saveEdit();
+    if (e.key === "Escape") cancelEdit();
+  }
+
+  return (
+    <div className="group rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur transition-colors hover:border-white/20 hover:bg-white/10">
+      {/* Name row */}
+      <div className="mb-3 flex items-start gap-2">
+        {editing ? (
+          <div className="flex flex-1 flex-col gap-1.5">
+            <input
+              ref={inputRef}
+              value={draft}
+              onChange={(e) => {
+                setDraft(e.target.value);
+              }}
+              onKeyDown={handleKeyDown}
+              maxLength={100}
+              disabled={saving}
+              className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm font-semibold text-white placeholder:text-blue-100/40 focus:ring-2 focus:ring-blue-400/50 focus:outline-none disabled:opacity-50"
+            />
+            {error && <p className="text-xs text-red-400">{error}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={() => void saveEdit()}
+                disabled={saving}
+                className="rounded-md bg-blue-500/30 px-3 py-1 text-xs text-blue-200 transition-colors hover:bg-blue-500/50 disabled:opacity-50"
+              >
+                {saving ? "Saving…" : "Save"}
+              </button>
+              <button
+                onClick={cancelEdit}
+                disabled={saving}
+                className="rounded-md border border-white/20 px-3 py-1 text-xs text-blue-100/60 transition-colors hover:bg-white/10 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <h2 className="flex-1 leading-snug font-semibold wrap-break-word text-white" title={name}>
+              {name}
+            </h2>
+            <button
+              onClick={startEdit}
+              title="Rename deck"
+              className="mt-0.5 shrink-0 rounded p-1 text-blue-100/40 transition-opacity hover:bg-white/10 hover:text-blue-100/80 sm:opacity-0 sm:group-hover:opacity-100"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 0 1 2.828 0l.172.172a2 2 0 0 1 0 2.828L12 16H9v-3z"
+                />
+              </svg>
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Stats row */}
+      <div className="flex gap-4 text-sm">
+        <div className="flex items-center gap-1.5 text-blue-100/70">
+          <svg
+            className="h-4 w-4 shrink-0"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 11H5m14 0a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2m14 0V9a2 2 0 0 0-2-2M5 11V9a2 2 0 0 1 2-2m0 0V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2M7 7h10"
+            />
+          </svg>
+          <span>{deck.flashcardsCount} cards</span>
+        </div>
+        {deck.dueFlashcardsCount > 0 && (
+          <div className="flex items-center gap-1.5 text-amber-300">
+            <svg
+              className="h-4 w-4 shrink-0"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"
+              />
+            </svg>
+            <span>{deck.dueFlashcardsCount} due</span>
+          </div>
+        )}
+      </div>
+
+      <p className="mt-3 text-xs text-blue-100/40">Updated {new Date(deck.updatedAt).toLocaleDateString()}</p>
+    </div>
+  );
+}
