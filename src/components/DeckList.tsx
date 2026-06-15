@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { DeckDto, DeckLimitsDto } from "@/types";
 import type { ListDecksInput } from "@/lib/validation/decks";
 import DeckCard from "@/components/DeckCard";
+import DeckEmptyState from "@/components/DeckEmptyState";
 
 interface Props {
   /** Server-rendered first page of decks. */
@@ -32,6 +33,12 @@ export default function DeckList({ initialDecks, initialLimits, query, searchPar
   function handleDeleted(id: string) {
     setDecks((prev) => prev.filter((d) => d.id !== id));
     setLimits((prev) => (prev ? { ...prev, deckCount: Math.max(prev.deckCount - 1, 0), canCreateDeck: true } : prev));
+  }
+
+  /** Prepend a newly created deck and refresh the limits bar. */
+  function handleCreated(deck: DeckDto, newLimits: DeckLimitsDto) {
+    setDecks((prev) => [deck, ...prev]);
+    setLimits(newLimits);
   }
 
   /** Build a URL relative to the current query, resetting pagination. */
@@ -166,14 +173,7 @@ export default function DeckList({ initialDecks, initialLimits, query, searchPar
 
       {/* Deck grid */}
       {decks.length === 0 && !fetchError ? (
-        <div className="rounded-2xl border border-white/10 bg-white/5 py-16 text-center backdrop-blur">
-          <p className="text-lg font-medium text-blue-100/60">
-            {query.search ? `No decks matching "${query.search}"` : "No decks yet"}
-          </p>
-          <p className="mt-1 text-sm text-blue-100/40">
-            {query.search ? "Try a different search term." : "Create your first deck to get started."}
-          </p>
-        </div>
+        <DeckEmptyState isSearchResult={Boolean(query.search)} searchTerm={query.search} onCreated={handleCreated} />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {decks.map((deck) => (
