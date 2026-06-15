@@ -1,0 +1,247 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2026-06-15T00:00:00.000Z",
+  "__export_source": "10x-astro-starter",
+  "resources": [
+    {
+      "_id": "wrk_decks_api",
+      "_type": "workspace",
+      "parentId": null,
+      "name": "Decks API",
+      "description": "API collection for auth and deck management endpoints.",
+      "scope": "collection"
+    },
+    {
+      "_id": "env_base",
+      "_type": "environment",
+      "parentId": "wrk_decks_api",
+      "name": "Base Environment",
+      "data": {
+        "base_url": "http://localhost:4321",
+        "email": "user@example.com",
+        "password": "your-password-here",
+        "deck_id": "00000000-0000-0000-0000-000000000000"
+      }
+    },
+    {
+      "_id": "jar_cookies",
+      "_type": "cookie_jar",
+      "parentId": "wrk_decks_api",
+      "name": "Default Jar",
+      "cookies": []
+    },
+    {
+      "_id": "fld_auth",
+      "_type": "request_group",
+      "parentId": "wrk_decks_api",
+      "name": "Auth",
+      "description": "Sign-up, sign-in, and sign-out. Cookies are managed automatically by Insomnia's Cookie Jar — run Sign In first, then all deck requests will include the session cookie."
+    },
+    {
+      "_id": "req_signup",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Sign Up",
+      "description": "POST /api/auth/signup\n\nRegisters a new user. Accepts multipart/form-data with email + password.\nOn success the server redirects to /auth/confirm-email — the user must verify their email before signing in.\n\nResponses:\n- 302 → /auth/confirm-email   on success\n- 302 → /auth/signup?error=…  on Supabase error (e.g. email already in use)",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/auth/signup",
+      "headers": [
+        {
+          "name": "Origin",
+          "value": "{{ _.base_url }}",
+          "description": "Required: Astro's built-in CSRF check (security.checkOrigin) blocks POST without a matching Origin header."
+        }
+      ],
+      "parameters": [],
+      "body": {
+        "mimeType": "multipart/form-data",
+        "params": [
+          { "name": "email", "value": "{{ _.email }}", "description": "User email address." },
+          { "name": "password", "value": "{{ _.password }}", "description": "User password." }
+        ]
+      }
+    },
+    {
+      "_id": "req_signin",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Sign In",
+      "description": "POST /api/auth/signin\n\nAuthenticates an existing user. Accepts multipart/form-data with email + password.\nSupabase sets an HttpOnly session cookie (sb-*-auth-token) via Set-Cookie. Insomnia stores it in the Cookie Jar automatically and sends it on all subsequent requests to the same origin.\n\nResponses:\n- 302 → /           on success (session cookie set)\n- 302 → /auth/signin?error=…  on bad credentials or config error\n\nCookie handling:\n  Insomnia follows the redirect and stores the Set-Cookie headers in the Default Jar.\n  All subsequent requests to {{ _.base_url }} will include those cookies automatically.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/auth/signin",
+      "headers": [
+        {
+          "name": "Origin",
+          "value": "{{ _.base_url }}",
+          "description": "Required: Astro's built-in CSRF check (security.checkOrigin) blocks POST without a matching Origin header."
+        }
+      ],
+      "parameters": [],
+      "body": {
+        "mimeType": "multipart/form-data",
+        "params": [
+          { "name": "email", "value": "{{ _.email }}", "description": "User email address." },
+          { "name": "password", "value": "{{ _.password }}", "description": "User password." }
+        ]
+      }
+    },
+    {
+      "_id": "req_signout",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Sign Out",
+      "description": "POST /api/auth/signout\n\nInvalidates the current session on the Supabase side and clears the session cookie.\nNo body required — the session is identified by the cookie already stored in the Cookie Jar.\n\nResponses:\n- 302 → /   (session cookie cleared)",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/auth/signout",
+      "headers": [
+        {
+          "name": "Origin",
+          "value": "{{ _.base_url }}",
+          "description": "Required: Astro's built-in CSRF check (security.checkOrigin) blocks POST without a matching Origin header."
+        }
+      ],
+      "parameters": [],
+      "body": {}
+    },
+    {
+      "_id": "fld_decks",
+      "_type": "request_group",
+      "parentId": "wrk_decks_api",
+      "name": "Decks",
+      "description": "Endpoints for creating, listing, renaming, and deleting decks. Requires a valid session — run Auth → Sign In first."
+    },
+
+    {
+      "_id": "req_list_decks",
+      "_type": "request",
+      "parentId": "fld_decks",
+      "name": "List Decks",
+      "description": "GET /api/decks\n\nReturns a paginated, sortable, and searchable list of the authenticated user's decks together with per-deck flashcard counters and deck-limit metadata.\n\nQuery parameters:\n- limit   (integer 1–100, default 20)  — page size\n- cursor  (string, optional)           — opaque cursor from a previous response's pagination.nextCursor\n- sort    (createdAt|updatedAt|name, default createdAt)\n- order   (asc|desc, default desc)\n- search  (string, optional)           — case-insensitive substring filter on deck name\n\nResponses:\n- 200  ListDecksResponseDto\n- 400  INVALID_QUERY   — bad query params or malformed/mismatched cursor\n- 401  AUTH_REQUIRED\n- 500  DECK_LIST_FAILED | CONFIG_ERROR",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/decks",
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [
+        {
+          "name": "limit",
+          "value": "20",
+          "description": "Number of decks per page (1–100).",
+          "disabled": false
+        },
+        {
+          "name": "sort",
+          "value": "createdAt",
+          "description": "Sort column: createdAt | updatedAt | name.",
+          "disabled": false
+        },
+        {
+          "name": "order",
+          "value": "desc",
+          "description": "Sort direction: asc | desc.",
+          "disabled": false
+        },
+        {
+          "name": "cursor",
+          "value": "",
+          "description": "Opaque cursor from pagination.nextCursor for the next page.",
+          "disabled": true
+        },
+        {
+          "name": "search",
+          "value": "",
+          "description": "Case-insensitive name substring filter.",
+          "disabled": true
+        }
+      ],
+      "body": {}
+    },
+
+    {
+      "_id": "req_create_deck",
+      "_type": "request",
+      "parentId": "fld_decks",
+      "name": "Create Deck",
+      "description": "POST /api/decks\n\nCreates a new deck for the authenticated user and returns the created deck together with updated deck-limit metadata.\n\nRequest body (JSON):\n- name  (string, required, 1–100 chars after trimming)\n\nResponses:\n- 201  CreateDeckResponseDto  { deck: DeckDto, limits: DeckLimitsDto }\n- 400  INVALID_BODY | INVALID_DECK_NAME\n- 401  AUTH_REQUIRED\n- 403  FORBIDDEN_ORIGIN  — cross-origin request rejected (CSRF)\n- 409  DECK_LIMIT_REACHED  — user already owns 120 decks\n- 500  DECK_CREATE_FAILED | CONFIG_ERROR",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/decks",
+      "headers": [
+        {
+          "name": "Origin",
+          "value": "{{ _.base_url }}",
+          "description": "Required: Astro's built-in CSRF check (security.checkOrigin) blocks POST without a matching Origin header."
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"My New Deck\"\n}"
+      }
+    },
+
+    {
+      "_id": "req_rename_deck",
+      "_type": "request",
+      "parentId": "fld_decks",
+      "name": "Rename Deck",
+      "description": "PATCH /api/decks/{deckId}\n\nRenames a deck owned by the authenticated user and returns the updated deck (including current flashcard counters).\n\nPath parameters:\n- deckId  (UUID, required)\n\nRequest body (JSON):\n- name  (string, required, 1–100 chars after trimming)\n\nResponses:\n- 200  RenameDeckResponseDto  { deck: DeckDto }\n- 400  INVALID_BODY | INVALID_DECK_NAME | INVALID_DECK_ID\n- 401  AUTH_REQUIRED\n- 403  FORBIDDEN_ORIGIN\n- 404  DECK_NOT_FOUND\n- 500  DECK_UPDATE_FAILED | CONFIG_ERROR",
+      "method": "PATCH",
+      "url": "{{ _.base_url }}/api/decks/{{ _.deck_id }}",
+      "headers": [
+        {
+          "name": "Origin",
+          "value": "{{ _.base_url }}",
+          "description": "Required: Astro's built-in CSRF check (security.checkOrigin) blocks PATCH without a matching Origin header."
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"Renamed Deck\"\n}"
+      }
+    },
+
+    {
+      "_id": "req_delete_deck",
+      "_type": "request",
+      "parentId": "fld_decks",
+      "name": "Delete Deck",
+      "description": "DELETE /api/decks/{deckId}\n\nPermanently deletes a deck owned by the authenticated user. All flashcards belonging to the deck are removed via the ON DELETE CASCADE foreign key — no separate step is needed.\n\nPath parameters:\n- deckId  (UUID, required)\n\nResponses:\n- 200  DeleteDeckResponseDto  { message: \"Deck deleted successfully\" }\n- 400  INVALID_DECK_ID\n- 401  AUTH_REQUIRED\n- 403  FORBIDDEN_ORIGIN\n- 404  DECK_NOT_FOUND\n- 500  DECK_DELETE_FAILED | CONFIG_ERROR",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/api/decks/{{ _.deck_id }}",
+      "headers": [
+        {
+          "name": "Origin",
+          "value": "{{ _.base_url }}",
+          "description": "Required: Astro's built-in CSRF check (security.checkOrigin) blocks DELETE without a matching Origin header."
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "body": {}
+    }
+  ]
+}
