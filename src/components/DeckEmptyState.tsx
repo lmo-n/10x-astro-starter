@@ -1,5 +1,6 @@
 import { useState } from "react";
-import type { CreateDeckResponseDto, DeckDto, DeckLimitsDto } from "@/types";
+import type { DeckDto, DeckLimitsDto } from "@/types";
+import { useCreateDeck } from "@/components/hooks/useCreateDeck";
 
 interface Props {
   /** When true, the empty state is the result of a search with no matches. */
@@ -17,47 +18,12 @@ interface Props {
  */
 export default function DeckEmptyState({ isSearchResult, searchTerm, onCreated }: Props) {
   const [newName, setNewName] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
+  const { creating, error: createError, create } = useCreateDeck(onCreated);
 
-  /** Create a deck via POST /api/decks, then hand it back to the parent. */
+  /** Create a deck, clearing the input on success. */
   async function handleCreate() {
-    const trimmed = newName.trim();
-    if (!trimmed) {
-      setCreateError("Deck name must not be empty.");
-      return;
-    }
-    if (trimmed.length > 100) {
-      setCreateError("Deck name must be at most 100 characters.");
-      return;
-    }
-
-    setCreating(true);
-    setCreateError(null);
-
-    try {
-      const res = await fetch("/api/decks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmed }),
-      });
-
-      if (!res.ok) {
-        const body: { error?: { message?: string } } = (await res.json().catch(() => ({}))) as {
-          error?: { message?: string };
-        };
-        setCreateError(body.error?.message ?? "Failed to create deck.");
-        return;
-      }
-
-      const result = (await res.json()) as CreateDeckResponseDto;
-      setNewName("");
-      onCreated(result.deck, result.limits);
-    } catch {
-      setCreateError("Network error. Please try again.");
-    } finally {
-      setCreating(false);
-    }
+    const ok = await create(newName);
+    if (ok) setNewName("");
   }
 
   return (

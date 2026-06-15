@@ -3,6 +3,7 @@ import type { DeckDto, DeckLimitsDto } from "@/types";
 import type { ListDecksInput } from "@/lib/validation/decks";
 import DeckCard from "@/components/DeckCard";
 import DeckEmptyState from "@/components/DeckEmptyState";
+import NewDeckButton from "@/components/NewDeckButton";
 
 interface Props {
   /** Server-rendered first page of decks. */
@@ -124,6 +125,12 @@ export default function DeckList({ initialDecks, initialLimits, query, searchPar
             Search
           </button>
         </form>
+
+        {/* Divider */}
+        <div className="hidden h-6 w-px bg-white/10 sm:block" />
+
+        {/* New deck */}
+        <NewDeckButton canCreate={limits ? limits.canCreateDeck : true} onCreated={handleCreated} />
 
         {/* Divider */}
         <div className="hidden h-6 w-px bg-white/10 sm:block" />
