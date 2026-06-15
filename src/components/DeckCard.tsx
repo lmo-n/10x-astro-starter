@@ -3,14 +3,18 @@ import type { DeckDto } from "@/types";
 
 interface Props {
   deck: DeckDto;
+  onDeleted: (id: string) => void;
 }
 
-export default function DeckCard({ deck }: Props) {
+export default function DeckCard({ deck, onDeleted }: Props) {
   const [name, setName] = useState(deck.name);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(deck.name);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -77,6 +81,33 @@ export default function DeckCard({ deck }: Props) {
     if (e.key === "Escape") cancelEdit();
   }
 
+  async function deleteDeck() {
+    setDeleting(true);
+    setDeleteError(null);
+
+    try {
+      const res = await fetch(`/api/decks/${deck.id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const body: { error?: { message?: string } } = (await res.json().catch(() => ({}))) as {
+          error?: { message?: string };
+        };
+        setDeleteError(body.error?.message ?? "Failed to delete deck.");
+        return;
+      }
+
+      // Notify the parent list so it can remove this deck and update the
+      // limits bar (React owns the list state).
+      onDeleted(deck.id);
+    } catch {
+      setDeleteError("Network error. Please try again.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <div className="group rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur transition-colors hover:border-white/20 hover:bg-white/10">
       {/* Name row */}
@@ -120,7 +151,7 @@ export default function DeckCard({ deck }: Props) {
             <button
               onClick={startEdit}
               title="Rename deck"
-              className="mt-0.5 shrink-0 rounded p-1 text-blue-100/40 transition-opacity hover:bg-white/10 hover:text-blue-100/80 sm:opacity-0 sm:group-hover:opacity-100"
+              className="mt-0.5 shrink-0 cursor-pointer rounded p-1 text-blue-100/40 transition-opacity hover:bg-white/10 hover:text-blue-100/80 sm:opacity-0 sm:group-hover:opacity-100"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -137,9 +168,61 @@ export default function DeckCard({ deck }: Props) {
                 />
               </svg>
             </button>
+            <button
+              onClick={() => {
+                setConfirmingDelete(true);
+                setDeleteError(null);
+              }}
+              title="Delete deck"
+              className="mt-0.5 shrink-0 cursor-pointer rounded p-1 text-blue-100/40 transition-opacity hover:bg-red-500/20 hover:text-red-300 sm:opacity-0 sm:group-hover:opacity-100"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16"
+                />
+              </svg>
+            </button>
           </>
         )}
       </div>
+
+      {/* Delete confirmation */}
+      {confirmingDelete && (
+        <div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+          <p className="text-sm text-red-200">
+            Delete <span className="font-semibold">{name}</span> and all its flashcards? This cannot be undone.
+          </p>
+          {deleteError && <p className="mt-1.5 text-xs text-red-400">{deleteError}</p>}
+          <div className="mt-2.5 flex gap-2">
+            <button
+              onClick={() => void deleteDeck()}
+              disabled={deleting}
+              className="rounded-md bg-red-500/40 px-3 py-1 text-xs text-red-100 transition-colors hover:bg-red-500/60 disabled:opacity-50"
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </button>
+            <button
+              onClick={() => {
+                setConfirmingDelete(false);
+                setDeleteError(null);
+              }}
+              disabled={deleting}
+              className="rounded-md border border-white/20 px-3 py-1 text-xs text-blue-100/60 transition-colors hover:bg-white/10 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Stats row */}
       <div className="flex gap-4 text-sm">
