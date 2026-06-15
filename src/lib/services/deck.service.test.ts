@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createDeck, listDecks, renameDeck, DeckServiceError, DECK_LIMIT } from "./deck.service";
+import { createDeck, listDecks, renameDeck, deleteDeck, DeckServiceError, DECK_LIMIT } from "./deck.service";
 import type { ListDecksInput } from "@/lib/validation/decks";
 
 interface PostgrestLikeError {
@@ -455,5 +455,58 @@ describe("listDecks", () => {
 
     expect(result.limits.canCreateDeck).toBe(false);
     expect(result.limits.deckCount).toBe(DECK_LIMIT);
+  });
+});
+
+// -----------------------------------------------------------------------------
+// deleteDeck
+// -----------------------------------------------------------------------------
+
+interface DeleteResult {
+  data: unknown;
+  error: PostgrestLikeError | null;
+}
+
+/**
+ * Build a mock that mimics the single query chain used by `deleteDeck`:
+ *   - delete: `.from().delete().eq().eq().select()`
+ *
+ * The final `.select("id")` resolves to the configured result.
+ */
+function makeDeleteSupabase(deleteResult: DeleteResult) {
+  const select = vi.fn().mockResolvedValue(deleteResult);
+  const deleteEq2 = vi.fn(() => ({ select }));
+  const deleteEq1 = vi.fn(() => ({ eq: deleteEq2 }));
+  const del = vi.fn(() => ({ eq: deleteEq1 }));
+
+  const from = vi.fn(() => ({ delete: del }));
+
+  const client = { from } as unknown as SupabaseClient;
+  return { client, del, deleteEq1, deleteEq2 };
+}
+
+describe("deleteDeck", () => {
+  it("deletes an owned deck scoped by id and user_id", async () => {
+    const { client, del, deleteEq1, deleteEq2 } = makeDeleteSupabase({ data: [{ id: "deck-1" }], error: null });
+
+    await expect(deleteDeck(client, "user-1", "deck-1")).resolves.toBeUndefined();
+
+    expect(del).toHaveBeenCalledTimes(1);
+    expect(deleteEq1).toHaveBeenCalledWith("id", "deck-1");
+    expect(deleteEq2).toHaveBeenCalledWith("user_id", "user-1");
+  });
+
+  it("throws DECK_NOT_FOUND when no row is deleted", async () => {
+    const { client } = makeDeleteSupabase({ data: [], error: null });
+
+    await expect(deleteDeck(client, "user-1", "deck-1")).rejects.toBeInstanceOf(DeckServiceError);
+    await expect(deleteDeck(client, "user-1", "deck-1")).rejects.toMatchObject({ code: "DECK_NOT_FOUND" });
+  });
+
+  it("throws DECK_DELETE_FAILED when the delete query fails", async () => {
+    const { client } = makeDeleteSupabase({ data: null, error: { message: "permission denied" } });
+
+    await expect(deleteDeck(client, "user-1", "deck-1")).rejects.toBeInstanceOf(DeckServiceError);
+    await expect(deleteDeck(client, "user-1", "deck-1")).rejects.toMatchObject({ code: "DECK_DELETE_FAILED" });
   });
 });

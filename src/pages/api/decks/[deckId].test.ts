@@ -13,15 +13,17 @@ vi.mock("@/lib/supabase", () => ({
 }));
 
 const renameDeckMock = vi.fn();
+const deleteDeckMock = vi.fn();
 vi.mock("@/lib/services/deck.service", async () => {
   const actual = await vi.importActual<typeof import("@/lib/services/deck.service")>("@/lib/services/deck.service");
   return {
     ...actual,
     renameDeck: (...args: unknown[]): unknown => renameDeckMock(...args) as unknown,
+    deleteDeck: (...args: unknown[]): unknown => deleteDeckMock(...args) as unknown,
   };
 });
 
-import { PATCH } from "./[deckId]";
+import { PATCH, DELETE } from "./[deckId]";
 import { DeckServiceError } from "@/lib/services/deck.service";
 
 const VALID_DECK_ID = "11111111-1111-4111-8111-111111111111";
@@ -91,6 +93,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   createClientMock.mockReturnValue(FAKE_SUPABASE);
   renameDeckMock.mockResolvedValue(SUCCESS_RESULT);
+  deleteDeckMock.mockResolvedValue(undefined);
 });
 
 describe("PATCH /api/decks/{deckId}", () => {
@@ -206,5 +209,90 @@ describe("PATCH /api/decks/{deckId}", () => {
     expect(response.status).toBe(500);
     const json = await readError(response);
     expect(json.error.code).toBe("DECK_UPDATE_FAILED");
+  });
+});
+
+describe("DELETE /api/decks/{deckId}", () => {
+  it("returns 200 with a success message on success", async () => {
+    const response = await DELETE(makeContext());
+
+    expect(response.status).toBe(200);
+    const json = (await response.json()) as { message: string };
+    expect(json).toEqual({ message: "Deck deleted successfully" });
+    expect(deleteDeckMock).toHaveBeenCalledWith(FAKE_SUPABASE, "user-1", VALID_DECK_ID);
+  });
+
+  it("returns 401 when the user is not authenticated", async () => {
+    const response = await DELETE(makeContext({ user: null }));
+
+    expect(response.status).toBe(401);
+    const json = await readError(response);
+    expect(json.error.code).toBe("AUTH_REQUIRED");
+    expect(deleteDeckMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 for a cross-origin request", async () => {
+    const response = await DELETE(makeContext({ origin: "https://evil.example.com" }));
+
+    expect(response.status).toBe(403);
+    const json = await readError(response);
+    expect(json.error.code).toBe("FORBIDDEN_ORIGIN");
+    expect(deleteDeckMock).not.toHaveBeenCalled();
+  });
+
+  it("allows a matching same-origin request", async () => {
+    const response = await DELETE(makeContext({ origin: "https://app.example.com" }));
+
+    expect(response.status).toBe(200);
+  });
+
+  it("returns 500 CONFIG_ERROR when Supabase is not configured", async () => {
+    createClientMock.mockReturnValue(null);
+
+    const response = await DELETE(makeContext());
+
+    expect(response.status).toBe(500);
+    const json = await readError(response);
+    expect(json.error.code).toBe("CONFIG_ERROR");
+    expect(deleteDeckMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 INVALID_DECK_ID when deckId is not a UUID", async () => {
+    const response = await DELETE(makeContext({ deckId: "not-a-uuid" }));
+
+    expect(response.status).toBe(400);
+    const json = await readError(response);
+    expect(json.error.code).toBe("INVALID_DECK_ID");
+    expect(deleteDeckMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 DECK_NOT_FOUND when the service signals a missing deck", async () => {
+    deleteDeckMock.mockRejectedValue(new DeckServiceError("DECK_NOT_FOUND", "not found"));
+
+    const response = await DELETE(makeContext());
+
+    expect(response.status).toBe(404);
+    const json = await readError(response);
+    expect(json.error.code).toBe("DECK_NOT_FOUND");
+  });
+
+  it("returns 500 DECK_DELETE_FAILED on a generic service failure", async () => {
+    deleteDeckMock.mockRejectedValue(new DeckServiceError("DECK_DELETE_FAILED", "boom"));
+
+    const response = await DELETE(makeContext());
+
+    expect(response.status).toBe(500);
+    const json = await readError(response);
+    expect(json.error.code).toBe("DECK_DELETE_FAILED");
+  });
+
+  it("returns 500 DECK_DELETE_FAILED on an unexpected error", async () => {
+    deleteDeckMock.mockRejectedValue(new Error("unexpected"));
+
+    const response = await DELETE(makeContext());
+
+    expect(response.status).toBe(500);
+    const json = await readError(response);
+    expect(json.error.code).toBe("DECK_DELETE_FAILED");
   });
 });

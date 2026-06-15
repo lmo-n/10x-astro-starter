@@ -25,6 +25,7 @@ export type DeckServiceErrorCode =
   | "DECK_CREATE_FAILED"
   | "DECK_NOT_FOUND"
   | "DECK_UPDATE_FAILED"
+  | "DECK_DELETE_FAILED"
   | "DECK_LIST_FAILED"
   | "INVALID_QUERY";
 
@@ -220,6 +221,44 @@ export async function renameDeck(
   };
 
   return { deck };
+}
+
+/**
+ * Permanently delete a deck owned by the given user. Deleting a deck cascades
+ * to all of its flashcards via the `flashcards.deck_id` `ON DELETE CASCADE`
+ * foreign key, so no separate flashcard delete is required.
+ *
+ * The delete is scoped by both `id` and `user_id` (defence in depth with RLS),
+ * so a user can only delete their own deck. A non-existent deck or one owned by
+ * another user is indistinguishable and surfaces as `DECK_NOT_FOUND` (404) to
+ * prevent resource enumeration.
+ *
+ * @param supabase Authenticated Supabase SSR client (RLS scopes writes to the user).
+ * @param userId   Owner id, always derived from the session — never the request body.
+ * @param deckId   UUID of the deck to delete (already validated by the route).
+ * @throws {DeckServiceError} `DECK_NOT_FOUND` when no owned deck matches;
+ *         `DECK_DELETE_FAILED` for any other persistence failure.
+ */
+export async function deleteDeck(supabase: SupabaseClient, userId: string, deckId: string): Promise<void> {
+  // Single delete scoped to the owning user, returning affected ids so we can
+  // distinguish "deleted" from "nothing matched" without an extra round-trip.
+  const { data: deleted, error: deleteError } = await supabase
+    .from("decks")
+    .delete()
+    .eq("id", deckId)
+    .eq("user_id", userId)
+    .select("id");
+
+  if (deleteError) {
+    throw new DeckServiceError("DECK_DELETE_FAILED", "Failed to delete deck.", {
+      cause: deleteError,
+    });
+  }
+
+  // No row deleted → deck missing or not owned by the requester.
+  if (deleted.length === 0) {
+    throw new DeckServiceError("DECK_NOT_FOUND", "Deck not found.");
+  }
 }
 
 // -----------------------------------------------------------------------------
