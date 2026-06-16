@@ -368,6 +368,12 @@ export interface UpdateFlashcardResponseDto {
 /** Response body for `DELETE /api/flashcards/{flashcardId}`. */
 export type DeleteFlashcardResponseDto = MessageResponseDto;
 
+/** Response body for `DELETE /api/decks/{deckId}/flashcards`. */
+export interface ClearDeckFlashcardsResponseDto {
+  message: string;
+  deletedCount: number;
+}
+
 // -----------------------------------------------------------------------------
 // 8. AI Flashcard Workflow
 // -----------------------------------------------------------------------------

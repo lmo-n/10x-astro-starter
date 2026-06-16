@@ -1,5 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { CreateFlashcardCommand, CreateFlashcardResponseDto, FlashcardDto, FlashcardRow } from "@/types";
+import type {
+  ClearDeckFlashcardsResponseDto,
+  CreateFlashcardCommand,
+  CreateFlashcardResponseDto,
+  FlashcardDto,
+  FlashcardRow,
+} from "@/types";
 
 /** Columns selected from `flashcards` to build a {@link FlashcardDto}. */
 const FLASHCARD_COLUMNS =
@@ -172,4 +178,62 @@ export async function deleteFlashcard(supabase: SupabaseClient, userId: string, 
   if (deleted.length === 0) {
     throw new FlashcardServiceError("FLASHCARD_NOT_FOUND", "Flashcard not found.");
   }
+}
+
+/**
+ * Physically delete all flashcards inside a deck owned by the given user.
+ *
+ * The deck is verified to exist and belong to the user before deletion so a
+ * missing or foreign deck surfaces as `DECK_NOT_FOUND` (404) rather than a
+ * silent no-op. The deck itself is preserved; only its flashcards are removed.
+ * Deleting from an already-empty deck is valid and returns `deletedCount: 0`.
+ *
+ * @param supabase Authenticated Supabase SSR client (RLS scopes writes to the user).
+ * @param userId   Owner id, always derived from the session — never the request body.
+ * @param deckId   UUID of the target deck (already validated by the route).
+ * @throws {FlashcardServiceError} `DECK_NOT_FOUND` when the deck is absent or
+ *         owned by another user; `FLASHCARD_DELETE_FAILED` for any other failure.
+ */
+export async function clearDeckFlashcards(
+  supabase: SupabaseClient,
+  userId: string,
+  deckId: string,
+): Promise<ClearDeckFlashcardsResponseDto> {
+  // 1. Verify the deck exists and is owned by the user before deleting.
+  const { data: deck, error: deckError } = await supabase
+    .from("decks")
+    .select("id")
+    .eq("id", deckId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (deckError) {
+    throw new FlashcardServiceError("FLASHCARD_DELETE_FAILED", "Failed to verify deck ownership.", {
+      cause: deckError,
+    });
+  }
+
+  if (!deck) {
+    throw new FlashcardServiceError("DECK_NOT_FOUND", "Deck not found.");
+  }
+
+  // 2. Bulk-delete all flashcards in the deck, scoped by both deck_id and
+  //    user_id for defence-in-depth alongside RLS.
+  const { data: deleted, error: deleteError } = await supabase
+    .from("flashcards")
+    .delete()
+    .eq("deck_id", deckId)
+    .eq("user_id", userId)
+    .select("id");
+
+  if (deleteError) {
+    throw new FlashcardServiceError("FLASHCARD_DELETE_FAILED", "Failed to delete flashcards.", {
+      cause: deleteError,
+    });
+  }
+
+  return {
+    message: "All flashcards deleted successfully",
+    deletedCount: (deleted ?? []).length,
+  };
 }

@@ -77,25 +77,14 @@ if (notFound) {
     ) : (
       deck && (
         <>
-          {/* Deck header */}
-          <div class="mb-8">
-            <h1 class="bg-linear-to-r from-blue-600 to-purple-600 bg-clip-text text-2xl font-bold wrap-break-word text-transparent sm:text-3xl dark:from-blue-200 dark:to-purple-200">
-              {deck.name}
-            </h1>
-            <div class="mt-2 flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-blue-100/60">
-              <span>
-                <span class="font-semibold text-gray-900 dark:text-white">{deck.flashcardsCount}</span> cards
-              </span>
-              {deck.dueFlashcardsCount > 0 && (
-                <span class="text-amber-600 dark:text-amber-300">{deck.dueFlashcardsCount} due</span>
-              )}
-              <span>Updated {new Date(deck.updatedAt).toLocaleDateString()}</span>
-            </div>
-          </div>
-
-          {/* Flashcards list */}
-          <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Flashcards</h2>
-          <FlashcardList client:load deckId={deck.id} initialFlashcards={flashcards} />
+          {/* Flashcards list — includes live deck header with counts */}
+          <FlashcardList
+            client:load
+            deckId={deck.id}
+            deckName={deck.name}
+            updatedAt={deck.updatedAt}
+            initialFlashcards={flashcards}
+          />
         </>
       )
     )

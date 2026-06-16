@@ -419,6 +419,31 @@
   - `401 Unauthorized` -> `AUTH_REQUIRED`, no active session.
   - `404 Not Found` -> `DECK_NOT_FOUND`, deck does not exist or is not owned by the user.
 
+#### Clear All Flashcards In Deck
+
+- **Method:** `DELETE`
+- **Path:** `/api/decks/{deckId}/flashcards`
+- **Description:** Physically deletes all flashcards inside a user-owned deck. The deck itself is preserved. This is a bulk destructive operation and cannot be undone.
+- **Path parameters:**
+  - `deckId` UUID.
+- **Request body:** None.
+- **Response body:**
+
+```json
+{
+  "message": "All flashcards deleted successfully",
+  "deletedCount": 42
+}
+```
+
+- **Success codes:**
+  - `200 OK` -> All flashcards deleted (including when the deck was already empty; `deletedCount` will be `0`).
+- **Error codes:**
+  - `400 Bad Request` -> `INVALID_DECK_ID`, path parameter is not a UUID.
+  - `401 Unauthorized` -> `AUTH_REQUIRED`, no active session.
+  - `404 Not Found` -> `DECK_NOT_FOUND`, deck does not exist or is not owned by the user.
+  - `500 Internal Server Error` -> `FLASHCARD_DELETE_FAILED`, unexpected persistence failure.
+
 #### Get Flashcard
 
 - **Method:** `GET`
@@ -966,7 +991,7 @@
 - Google SSO login -> `GET /api/auth/google`, Supabase OAuth callback handling, `POST /api/auth/signout`.
 - Profile creation and AI limit flags -> Supabase Auth trigger `handle_new_user()`, `GET /api/me`, `GET /api/me/ai-credits`.
 - Deck create, rename, delete, empty state, and 120-deck limit -> `GET /api/decks`, `POST /api/decks`, `GET /api/decks/{deckId}`, `PATCH /api/decks/{deckId}`, `DELETE /api/decks/{deckId}`.
-- Manual flashcard creation and management -> `GET /api/decks/{deckId}/flashcards`, `POST /api/decks/{deckId}/flashcards`, `GET /api/flashcards/{flashcardId}`, `PATCH /api/flashcards/{flashcardId}`, `DELETE /api/flashcards/{flashcardId}`.
+- Manual flashcard creation and management -> `GET /api/decks/{deckId}/flashcards`, `POST /api/decks/{deckId}/flashcards`, `DELETE /api/decks/{deckId}/flashcards`, `GET /api/flashcards/{flashcardId}`, `PATCH /api/flashcards/{flashcardId}`, `DELETE /api/flashcards/{flashcardId}`.
 - AI proposal generation -> direct browser-to-provider call with client validation and friendly UI error handling.
 - AI verification and approval -> `POST /api/ai/flashcards/approve`.
 - AI acceptance and adoption metrics -> `GET /api/ai/generation-logs`, `GET /api/analytics/summary`.

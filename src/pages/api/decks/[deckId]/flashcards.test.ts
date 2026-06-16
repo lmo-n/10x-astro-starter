@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { APIContext } from "astro";
-import type { CreateFlashcardResponseDto } from "@/types";
+import type { ClearDeckFlashcardsResponseDto, CreateFlashcardResponseDto } from "@/types";
 
 // --- Mocks -------------------------------------------------------------------
 // `@/lib/supabase` pulls in `astro:env/server`, a virtual module unavailable in
@@ -13,6 +13,7 @@ vi.mock("@/lib/supabase", () => ({
 }));
 
 const createManualFlashcardMock = vi.fn();
+const clearDeckFlashcardsMock = vi.fn();
 vi.mock("@/lib/services/flashcard.service", async () => {
   const actual = await vi.importActual<typeof import("@/lib/services/flashcard.service")>(
     "@/lib/services/flashcard.service",
@@ -20,10 +21,11 @@ vi.mock("@/lib/services/flashcard.service", async () => {
   return {
     ...actual,
     createManualFlashcard: (...args: unknown[]): unknown => createManualFlashcardMock(...args) as unknown,
+    clearDeckFlashcards: (...args: unknown[]): unknown => clearDeckFlashcardsMock(...args) as unknown,
   };
 });
 
-import { POST } from "./flashcards";
+import { DELETE, POST } from "./flashcards";
 import { FlashcardServiceError } from "@/lib/services/flashcard.service";
 
 const VALID_DECK_ID = "11111111-1111-4111-8111-111111111111";
@@ -271,5 +273,103 @@ describe("POST /api/decks/{deckId}/flashcards", () => {
     expect(response.status).toBe(500);
     const json = await readError(response);
     expect(json.error.code).toBe("FLASHCARD_CREATE_FAILED");
+  });
+});
+
+const CLEAR_SUCCESS: ClearDeckFlashcardsResponseDto = {
+  message: "All flashcards deleted successfully",
+  deletedCount: 5,
+};
+
+describe("DELETE /api/decks/{deckId}/flashcards", () => {
+  beforeEach(() => {
+    clearDeckFlashcardsMock.mockResolvedValue(CLEAR_SUCCESS);
+  });
+
+  it("returns 200 with message and deletedCount on success", async () => {
+    const response = await DELETE(makeContext());
+
+    expect(response.status).toBe(200);
+    const json = (await response.json()) as ClearDeckFlashcardsResponseDto;
+    expect(json).toEqual(CLEAR_SUCCESS);
+    expect(clearDeckFlashcardsMock).toHaveBeenCalledWith(FAKE_SUPABASE, "user-1", VALID_DECK_ID);
+  });
+
+  it("returns 200 with deletedCount 0 for an already-empty deck", async () => {
+    clearDeckFlashcardsMock.mockResolvedValue({ message: "All flashcards deleted successfully", deletedCount: 0 });
+
+    const response = await DELETE(makeContext());
+
+    expect(response.status).toBe(200);
+    const json = (await response.json()) as ClearDeckFlashcardsResponseDto;
+    expect(json.deletedCount).toBe(0);
+  });
+
+  it("returns 401 when the user is not authenticated", async () => {
+    const response = await DELETE(makeContext({ user: null }));
+
+    expect(response.status).toBe(401);
+    const json = await readError(response);
+    expect(json.error.code).toBe("AUTH_REQUIRED");
+    expect(clearDeckFlashcardsMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 for a cross-origin request", async () => {
+    const response = await DELETE(makeContext({ origin: "https://evil.example.com" }));
+
+    expect(response.status).toBe(403);
+    const json = await readError(response);
+    expect(json.error.code).toBe("FORBIDDEN_ORIGIN");
+    expect(clearDeckFlashcardsMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 500 CONFIG_ERROR when Supabase is not configured", async () => {
+    createClientMock.mockReturnValue(null);
+
+    const response = await DELETE(makeContext());
+
+    expect(response.status).toBe(500);
+    const json = await readError(response);
+    expect(json.error.code).toBe("CONFIG_ERROR");
+    expect(clearDeckFlashcardsMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 INVALID_DECK_ID when deckId is not a UUID", async () => {
+    const response = await DELETE(makeContext({ deckId: "not-a-uuid" }));
+
+    expect(response.status).toBe(400);
+    const json = await readError(response);
+    expect(json.error.code).toBe("INVALID_DECK_ID");
+    expect(clearDeckFlashcardsMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 DECK_NOT_FOUND when service throws DECK_NOT_FOUND", async () => {
+    clearDeckFlashcardsMock.mockRejectedValue(new FlashcardServiceError("DECK_NOT_FOUND", "Deck not found."));
+
+    const response = await DELETE(makeContext());
+
+    expect(response.status).toBe(404);
+    const json = await readError(response);
+    expect(json.error.code).toBe("DECK_NOT_FOUND");
+  });
+
+  it("returns 500 FLASHCARD_DELETE_FAILED when service throws FLASHCARD_DELETE_FAILED", async () => {
+    clearDeckFlashcardsMock.mockRejectedValue(new FlashcardServiceError("FLASHCARD_DELETE_FAILED", "Delete failed."));
+
+    const response = await DELETE(makeContext());
+
+    expect(response.status).toBe(500);
+    const json = await readError(response);
+    expect(json.error.code).toBe("FLASHCARD_DELETE_FAILED");
+  });
+
+  it("returns 500 FLASHCARD_DELETE_FAILED for an unexpected error", async () => {
+    clearDeckFlashcardsMock.mockRejectedValue(new Error("unexpected"));
+
+    const response = await DELETE(makeContext());
+
+    expect(response.status).toBe(500);
+    const json = await readError(response);
+    expect(json.error.code).toBe("FLASHCARD_DELETE_FAILED");
   });
 });

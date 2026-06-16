@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createManualFlashcard, deleteFlashcard, toFlashcardDto, FlashcardServiceError } from "./flashcard.service";
+import {
+  clearDeckFlashcards,
+  createManualFlashcard,
+  deleteFlashcard,
+  toFlashcardDto,
+  FlashcardServiceError,
+} from "./flashcard.service";
 import type { FlashcardRow } from "@/types";
 
 interface PostgrestLikeError {
@@ -210,5 +216,96 @@ describe("deleteFlashcard", () => {
 
     expect(from).toHaveBeenCalledTimes(1);
     expect(from).not.toHaveBeenCalledWith("decks");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// clearDeckFlashcards
+// ---------------------------------------------------------------------------
+
+interface ArrayResult {
+  data: { id: string }[] | null;
+  error: { message: string } | null;
+}
+
+/**
+ * Build a mock that mimics the two query chains used by `clearDeckFlashcards`:
+ *   - deck check: `.from("decks").select().eq().eq().maybeSingle()`
+ *   - bulk delete: `.from("flashcards").delete().eq().eq().select()`
+ */
+function makeClearSupabase(deckResult: SingleResult, deleteResult: ArrayResult = { data: [], error: null }) {
+  const maybeSingle = vi.fn().mockResolvedValue(deckResult);
+  const deckEq2 = vi.fn(() => ({ maybeSingle }));
+  const deckEq1 = vi.fn(() => ({ eq: deckEq2 }));
+  const deckSelect = vi.fn(() => ({ eq: deckEq1 }));
+
+  const deleteSelect = vi.fn().mockResolvedValue(deleteResult);
+  const flashEq2 = vi.fn(() => ({ select: deleteSelect }));
+  const flashEq1 = vi.fn(() => ({ eq: flashEq2 }));
+  const del = vi.fn(() => ({ eq: flashEq1 }));
+
+  const from = vi.fn((table: string) => {
+    if (table === "decks") return { select: deckSelect };
+    return { delete: del };
+  });
+
+  const client = { from } as unknown as SupabaseClient;
+  return { client, from, del, flashEq1, flashEq2, deleteSelect };
+}
+
+describe("clearDeckFlashcards", () => {
+  it("verifies deck ownership then bulk-deletes flashcards scoped by deck_id and user_id", async () => {
+    const { client, from, del, flashEq1, flashEq2, deleteSelect } = makeClearSupabase(
+      { data: { id: "deck-1" }, error: null },
+      { data: [{ id: "card-1" }, { id: "card-2" }], error: null },
+    );
+
+    const result = await clearDeckFlashcards(client, "user-1", "deck-1");
+
+    expect(from).toHaveBeenCalledWith("decks");
+    expect(from).toHaveBeenCalledWith("flashcards");
+    expect(del).toHaveBeenCalledTimes(1);
+    expect(flashEq1).toHaveBeenCalledWith("deck_id", "deck-1");
+    expect(flashEq2).toHaveBeenCalledWith("user_id", "user-1");
+    expect(deleteSelect).toHaveBeenCalledWith("id");
+    expect(result).toEqual({ message: "All flashcards deleted successfully", deletedCount: 2 });
+  });
+
+  it("returns deletedCount 0 when the deck is already empty", async () => {
+    const { client } = makeClearSupabase({ data: { id: "deck-1" }, error: null }, { data: [], error: null });
+
+    const result = await clearDeckFlashcards(client, "user-1", "deck-1");
+
+    expect(result.deletedCount).toBe(0);
+    expect(result.message).toBe("All flashcards deleted successfully");
+  });
+
+  it("throws DECK_NOT_FOUND and does not delete when the deck is missing or foreign", async () => {
+    const { client, del } = makeClearSupabase({ data: null, error: null });
+
+    await expect(clearDeckFlashcards(client, "user-1", "deck-1")).rejects.toMatchObject({
+      code: "DECK_NOT_FOUND",
+    });
+    expect(del).not.toHaveBeenCalled();
+  });
+
+  it("throws FLASHCARD_DELETE_FAILED when the deck ownership query errors", async () => {
+    const { client, del } = makeClearSupabase({ data: null, error: { message: "permission denied" } });
+
+    await expect(clearDeckFlashcards(client, "user-1", "deck-1")).rejects.toMatchObject({
+      code: "FLASHCARD_DELETE_FAILED",
+    });
+    expect(del).not.toHaveBeenCalled();
+  });
+
+  it("throws FLASHCARD_DELETE_FAILED when the bulk delete query errors", async () => {
+    const { client } = makeClearSupabase(
+      { data: { id: "deck-1" }, error: null },
+      { data: null, error: { message: "delete failed" } },
+    );
+
+    await expect(clearDeckFlashcards(client, "user-1", "deck-1")).rejects.toMatchObject({
+      code: "FLASHCARD_DELETE_FAILED",
+    });
   });
 });

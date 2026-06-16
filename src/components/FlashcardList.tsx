@@ -8,6 +8,12 @@ interface Props {
   deckId: string;
   /** Server-rendered first page of flashcards. */
   initialFlashcards: FlashcardDto[];
+  /** Called after all flashcards have been successfully cleared. */
+  onCleared?: () => void;
+  /** Slot for the deck name heading rendered above the count badge. */
+  deckName: string;
+  /** Last-updated timestamp string (ISO 8601) from the server. */
+  updatedAt: string;
 }
 
 /**
@@ -15,8 +21,14 @@ interface Props {
  * single deck. Newly created cards are prepended to the list so they appear
  * instantly without a full page reload.
  */
-export default function FlashcardList({ deckId, initialFlashcards }: Props) {
+export default function FlashcardList({ deckId, initialFlashcards, onCleared, deckName, updatedAt }: Props) {
   const [flashcards, setFlashcards] = useState(initialFlashcards);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const dueCount = flashcards.filter((c) => c.sm2.dueAt <= today).length;
+  const [confirmingClear, setConfirmingClear] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [clearError, setClearError] = useState<string | null>(null);
 
   /** Prepend a newly created flashcard to the list. */
   function handleCreated(flashcard: FlashcardDto) {
@@ -28,9 +40,87 @@ export default function FlashcardList({ deckId, initialFlashcards }: Props) {
     setFlashcards((prev) => prev.filter((c) => c.id !== id));
   }
 
+  /** Clear all flashcards from local state after a successful bulk delete. */
+  function handleCleared() {
+    setFlashcards([]);
+    onCleared?.();
+  }
+
+  async function clearAllFlashcards() {
+    setClearing(true);
+    setClearError(null);
+    try {
+      const res = await fetch(`/api/decks/${deckId}/flashcards`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+        setClearError(body.error?.message ?? "Failed to clear flashcards.");
+        return;
+      }
+      handleCleared();
+      setConfirmingClear(false);
+    } catch {
+      setClearError("Network error. Please try again.");
+    } finally {
+      setClearing(false);
+    }
+  }
+
   return (
     <>
+      {/* Deck header — rendered inside the island so counts stay live */}
+      <div className="mb-8">
+        <h1 className="bg-linear-to-r from-blue-600 to-purple-600 bg-clip-text text-2xl font-bold wrap-break-word text-transparent sm:text-3xl dark:from-blue-200 dark:to-purple-200">
+          {deckName}
+        </h1>
+        <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-blue-100/60">
+          <span>
+            <span className="font-semibold text-gray-900 dark:text-white">{flashcards.length}</span> cards
+          </span>
+          {dueCount > 0 && <span className="text-amber-600 dark:text-amber-300">{dueCount} due</span>}
+          <span>Updated {new Date(updatedAt).toLocaleDateString()}</span>
+        </div>
+      </div>
+
+      <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Flashcards</h2>
+
       <AddFlashcardForm deckId={deckId} onCreated={handleCreated} />
+
+      {flashcards.length > 0 && (
+        <div className="mb-4 flex items-center justify-end gap-3">
+          {clearError && <p className="text-sm text-red-500 dark:text-red-400">{clearError}</p>}
+          {confirmingClear ? (
+            <>
+              <span className="text-sm text-gray-600 dark:text-blue-100/70">Remove all {flashcards.length} cards?</span>
+              <button
+                onClick={() => {
+                  setConfirmingClear(false);
+                }}
+                disabled={clearing}
+                className="cursor-pointer rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50 dark:border-white/20 dark:text-blue-100/60 dark:hover:bg-white/10"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={clearAllFlashcards}
+                disabled={clearing}
+                className="cursor-pointer rounded-md bg-red-600 px-3 py-1.5 text-sm text-white transition-colors hover:bg-red-700 disabled:opacity-50 dark:bg-red-500/40 dark:text-red-100 dark:hover:bg-red-500/60"
+              >
+                {clearing ? "Removing…" : "Yes, remove all"}
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => {
+                setClearError(null);
+                setConfirmingClear(true);
+              }}
+              className="cursor-pointer rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm text-red-600 transition-colors hover:bg-red-50 dark:border-red-400/40 dark:bg-transparent dark:text-red-400 dark:hover:bg-red-500/10"
+            >
+              Remove all flashcards
+            </button>
+          )}
+        </div>
+      )}
 
       {flashcards.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-6 py-12 text-center dark:border-white/15 dark:bg-white/5">
