@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createManualFlashcard, toFlashcardDto, FlashcardServiceError } from "./flashcard.service";
+import { createManualFlashcard, deleteFlashcard, toFlashcardDto, FlashcardServiceError } from "./flashcard.service";
 import type { FlashcardRow } from "@/types";
 
 interface PostgrestLikeError {
@@ -146,5 +146,69 @@ describe("createManualFlashcard", () => {
     await expect(createManualFlashcard(client, "user-1", "deck-1", COMMAND)).rejects.toMatchObject({
       code: "FLASHCARD_CREATE_FAILED",
     });
+  });
+});
+
+interface DeleteResult {
+  data: unknown;
+  error: PostgrestLikeError | null;
+}
+
+/**
+ * Build a mock that mimics the single query chain used by `deleteFlashcard`:
+ *   `.from("flashcards").delete().eq("id", …).eq("user_id", …).select("id")`
+ *
+ * The terminal `.select("id")` resolves to the affected-row result.
+ */
+function makeDeleteSupabase(deleteResult: DeleteResult) {
+  const select = vi.fn().mockResolvedValue(deleteResult);
+  const eq2 = vi.fn(() => ({ select }));
+  const eq1 = vi.fn(() => ({ eq: eq2 }));
+  const del = vi.fn(() => ({ eq: eq1 }));
+  const from = vi.fn(() => ({ delete: del }));
+
+  const client = { from } as unknown as SupabaseClient;
+  return { client, from, del, eq1, eq2, select };
+}
+
+describe("deleteFlashcard", () => {
+  it("deletes a flashcard scoped by id and user_id and resolves on success", async () => {
+    const { client, from, del, eq1, eq2, select } = makeDeleteSupabase({ data: [{ id: "card-1" }], error: null });
+
+    await expect(deleteFlashcard(client, "user-1", "card-1")).resolves.toBeUndefined();
+
+    // Delete targets the flashcards table and is scoped by both id and user_id.
+    expect(from).toHaveBeenCalledWith("flashcards");
+    expect(del).toHaveBeenCalledTimes(1);
+    expect(eq1).toHaveBeenCalledWith("id", "card-1");
+    expect(eq2).toHaveBeenCalledWith("user_id", "user-1");
+    // Only the id is selected from the deleted rows; no content is fetched.
+    expect(select).toHaveBeenCalledWith("id");
+  });
+
+  it("throws FLASHCARD_NOT_FOUND when no row was deleted", async () => {
+    const { client } = makeDeleteSupabase({ data: [], error: null });
+
+    await expect(deleteFlashcard(client, "user-1", "card-1")).rejects.toBeInstanceOf(FlashcardServiceError);
+    await expect(deleteFlashcard(client, "user-1", "card-1")).rejects.toMatchObject({
+      code: "FLASHCARD_NOT_FOUND",
+    });
+  });
+
+  it("throws FLASHCARD_DELETE_FAILED when the delete errors", async () => {
+    const { client } = makeDeleteSupabase({ data: null, error: { message: "permission denied" } });
+
+    await expect(deleteFlashcard(client, "user-1", "card-1")).rejects.toMatchObject({
+      code: "FLASHCARD_DELETE_FAILED",
+    });
+  });
+
+  it("does not look up the parent deck before deleting", async () => {
+    const { client, from } = makeDeleteSupabase({ data: [{ id: "card-1" }], error: null });
+
+    await deleteFlashcard(client, "user-1", "card-1");
+
+    expect(from).toHaveBeenCalledTimes(1);
+    expect(from).not.toHaveBeenCalledWith("decks");
   });
 });

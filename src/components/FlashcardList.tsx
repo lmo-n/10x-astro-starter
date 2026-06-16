@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FlashcardDto } from "@/types";
 import AddFlashcardForm from "@/components/AddFlashcardForm";
+import Flashcard from "@/components/Flashcard";
 
 interface Props {
   /** The deck whose flashcards are listed. */
@@ -20,6 +21,11 @@ export default function FlashcardList({ deckId, initialFlashcards }: Props) {
   /** Prepend a newly created flashcard to the list. */
   function handleCreated(flashcard: FlashcardDto) {
     setFlashcards((prev) => [flashcard, ...prev]);
+  }
+
+  /** Remove a deleted flashcard from the list. */
+  function handleDeleted(id: string) {
+    setFlashcards((prev) => prev.filter((c) => c.id !== id));
   }
 
   return (
@@ -52,30 +58,7 @@ export default function FlashcardList({ deckId, initialFlashcards }: Props) {
       ) : (
         <ul className="flex flex-col gap-3" data-deck-id={deckId}>
           {flashcards.map((card) => (
-            <li
-              key={card.id}
-              className="rounded-2xl border border-gray-200 bg-white p-5 transition-colors hover:border-gray-300 hover:bg-gray-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10"
-            >
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <p className="mb-1 text-xs tracking-wide text-gray-400 uppercase dark:text-blue-100/40">Front</p>
-                  <p className="text-sm wrap-break-word text-gray-900 dark:text-white">{card.frontText}</p>
-                </div>
-                <div className="sm:border-l sm:border-gray-100 sm:pl-4 dark:sm:border-white/10">
-                  <p className="mb-1 text-xs tracking-wide text-gray-400 uppercase dark:text-blue-100/40">Back</p>
-                  <p className="text-sm wrap-break-word text-gray-600 dark:text-blue-100/70">{card.backText}</p>
-                </div>
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-400 dark:text-blue-100/40">
-                {card.createdByAi && (
-                  <span className="rounded-full bg-purple-100 px-2 py-0.5 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300">
-                    AI
-                  </span>
-                )}
-                <span>Due {new Date(card.sm2.dueAt).toLocaleDateString()}</span>
-              </div>
-            </li>
+            <Flashcard key={card.id} card={card} onDeleted={handleDeleted} />
           ))}
         </ul>
       )}

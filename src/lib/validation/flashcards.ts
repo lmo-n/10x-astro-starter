@@ -84,3 +84,14 @@ export type CreateFlashcardInput = z.infer<typeof createFlashcardSchema>;
 export const deckIdParamSchema = z.object({
   deckId: z.uuid("Deck id must be a valid UUID."),
 });
+
+/**
+ * Validation schema for the `flashcardId` path parameter on the single-flashcard
+ * endpoints. `flashcardId` must be a valid UUID.
+ */
+export const flashcardIdParamSchema = z.object({
+  flashcardId: z.uuid("Flashcard id must be a valid UUID."),
+});
+
+/** Parsed and validated `flashcardId` path parameter. */
+export type FlashcardIdParam = z.infer<typeof flashcardIdParamSchema>;

@@ -6,7 +6,11 @@ const FLASHCARD_COLUMNS =
   "id, user_id, deck_id, front_text, back_text, created_by_ai, sm2_interval, sm2_repetition, sm2_ease_factor, due_at, last_reviewed_at, created_at, updated_at";
 
 /** Error codes surfaced by the flashcard service so the route can map them to HTTP. */
-export type FlashcardServiceErrorCode = "DECK_NOT_FOUND" | "FLASHCARD_CREATE_FAILED";
+export type FlashcardServiceErrorCode =
+  | "DECK_NOT_FOUND"
+  | "FLASHCARD_CREATE_FAILED"
+  | "FLASHCARD_NOT_FOUND"
+  | "FLASHCARD_DELETE_FAILED";
 
 /**
  * Domain error thrown by the flashcard service. The `code` is mapped to an HTTP
@@ -107,4 +111,42 @@ export async function createManualFlashcard(
   }
 
   return { flashcard: toFlashcardDto(inserted) };
+}
+
+/**
+ * Permanently delete a single flashcard owned by the given user.
+ *
+ * The delete is scoped by both `id` and `user_id` (defence in depth with RLS),
+ * so a user can only delete their own flashcard. A non-existent flashcard or one
+ * owned by another user is indistinguishable and surfaces as
+ * `FLASHCARD_NOT_FOUND` (404) to prevent resource enumeration. Only the `id` of
+ * the deleted row is selected so the affected-row check needs no extra read and
+ * no flashcard content is fetched or logged.
+ *
+ * @param supabase    Authenticated Supabase SSR client (RLS scopes writes to the user).
+ * @param userId      Owner id, always derived from the session — never the request body.
+ * @param flashcardId UUID of the flashcard to delete (already validated by the route).
+ * @throws {FlashcardServiceError} `FLASHCARD_NOT_FOUND` when no owned flashcard
+ *         matches; `FLASHCARD_DELETE_FAILED` for any other persistence failure.
+ */
+export async function deleteFlashcard(supabase: SupabaseClient, userId: string, flashcardId: string): Promise<void> {
+  // Single delete scoped to the owning user, returning affected ids so we can
+  // distinguish "deleted" from "nothing matched" without an extra round-trip.
+  const { data: deleted, error: deleteError } = await supabase
+    .from("flashcards")
+    .delete()
+    .eq("id", flashcardId)
+    .eq("user_id", userId)
+    .select("id");
+
+  if (deleteError) {
+    throw new FlashcardServiceError("FLASHCARD_DELETE_FAILED", "Failed to delete flashcard.", {
+      cause: deleteError,
+    });
+  }
+
+  // No row deleted → flashcard missing or not owned by the requester.
+  if (deleted.length === 0) {
+    throw new FlashcardServiceError("FLASHCARD_NOT_FOUND", "Flashcard not found.");
+  }
 }
