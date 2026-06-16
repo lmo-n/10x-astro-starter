@@ -4,6 +4,7 @@ import {
   clearDeckFlashcards,
   createManualFlashcard,
   deleteFlashcard,
+  updateFlashcard,
   toFlashcardDto,
   FlashcardServiceError,
 } from "./flashcard.service";
@@ -306,6 +307,127 @@ describe("clearDeckFlashcards", () => {
 
     await expect(clearDeckFlashcards(client, "user-1", "deck-1")).rejects.toMatchObject({
       code: "FLASHCARD_DELETE_FAILED",
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// updateFlashcard
+// ---------------------------------------------------------------------------
+
+const UPDATED_ROW: FlashcardRow = {
+  id: "card-1",
+  user_id: "user-1",
+  deck_id: "deck-1",
+  front_text: "Updated front?",
+  back_text: "Updated back.",
+  created_by_ai: false,
+  sm2_interval: 3,
+  sm2_repetition: 2,
+  sm2_ease_factor: 2.6,
+  due_at: "2026-06-20",
+  last_reviewed_at: "2026-06-16",
+  created_at: "2026-06-10T10:00:00.000Z",
+  updated_at: "2026-06-16T12:00:00.000Z",
+};
+
+/**
+ * Build a mock for the update chain:
+ * `.from("flashcards").update(payload).eq(id).eq(userId).select(cols).maybeSingle()`
+ */
+function makeUpdateSupabase(result: { data: unknown; error: { message: string } | null }) {
+  const maybeSingle = vi.fn().mockResolvedValue(result);
+  const select = vi.fn(() => ({ maybeSingle }));
+  const userEq = vi.fn(() => ({ select }));
+  const idEq = vi.fn(() => ({ eq: userEq }));
+  const update = vi.fn(() => ({ eq: idEq }));
+  const from = vi.fn(() => ({ update }));
+  const client = { from } as unknown as SupabaseClient;
+  return { client, from, update, idEq, userEq, select, maybeSingle };
+}
+
+describe("updateFlashcard", () => {
+  it("updates flashcard scoped by id and user_id and returns the DTO", async () => {
+    const { client, from, update, idEq, userEq } = makeUpdateSupabase({ data: UPDATED_ROW, error: null });
+
+    const result = await updateFlashcard(client, "user-1", "card-1", {
+      frontText: "Updated front?",
+      backText: "Updated back.",
+    });
+
+    expect(from).toHaveBeenCalledWith("flashcards");
+    expect(update).toHaveBeenCalledWith({ front_text: "Updated front?", back_text: "Updated back." });
+    expect(idEq).toHaveBeenCalledWith("id", "card-1");
+    expect(userEq).toHaveBeenCalledWith("user_id", "user-1");
+    expect(result.flashcard).toMatchObject({
+      id: "card-1",
+      frontText: "Updated front?",
+      backText: "Updated back.",
+      sm2: { interval: 3, repetition: 2, easeFactor: 2.6 },
+    });
+  });
+
+  it("only includes frontText in payload when only frontText is provided", async () => {
+    const { client, update } = makeUpdateSupabase({ data: UPDATED_ROW, error: null });
+
+    await updateFlashcard(client, "user-1", "card-1", { frontText: "Updated front?" });
+
+    expect(update).toHaveBeenCalledWith({ front_text: "Updated front?" });
+    expect(update).not.toHaveBeenCalledWith(expect.objectContaining({ back_text: expect.anything() }));
+  });
+
+  it("only includes backText in payload when only backText is provided", async () => {
+    const { client, update } = makeUpdateSupabase({ data: UPDATED_ROW, error: null });
+
+    await updateFlashcard(client, "user-1", "card-1", { backText: "Updated back." });
+
+    expect(update).toHaveBeenCalledWith({ back_text: "Updated back." });
+    expect(update).not.toHaveBeenCalledWith(expect.objectContaining({ front_text: expect.anything() }));
+  });
+
+  it("never includes SM-2, deck_id, created_by_ai, or ownership fields in the payload", async () => {
+    const { client, update } = makeUpdateSupabase({ data: UPDATED_ROW, error: null });
+
+    await updateFlashcard(client, "user-1", "card-1", { frontText: "Front?", backText: "Back." });
+
+    const payload = (update as ReturnType<typeof vi.fn>).mock.calls[0][0] as Record<string, unknown>;
+    const forbidden = [
+      "sm2_interval", "sm2_repetition", "sm2_ease_factor", "due_at", "last_reviewed_at",
+      "deck_id", "created_by_ai", "user_id", "id", "created_at", "updated_at",
+    ];
+    for (const key of forbidden) {
+      expect(payload).not.toHaveProperty(key);
+    }
+  });
+
+  it("maps returned row to FlashcardDto including unchanged SM-2 state", async () => {
+    const { client } = makeUpdateSupabase({ data: UPDATED_ROW, error: null });
+
+    const result = await updateFlashcard(client, "user-1", "card-1", { frontText: "Updated front?" });
+
+    expect(result.flashcard.sm2).toEqual({
+      interval: 3,
+      repetition: 2,
+      easeFactor: 2.6,
+      dueAt: "2026-06-20",
+      lastReviewedAt: "2026-06-16",
+    });
+    expect(result.flashcard).not.toHaveProperty("userId");
+  });
+
+  it("throws FLASHCARD_NOT_FOUND when no row is returned", async () => {
+    const { client } = makeUpdateSupabase({ data: null, error: null });
+
+    await expect(updateFlashcard(client, "user-1", "card-1", { frontText: "Front?" })).rejects.toMatchObject({
+      code: "FLASHCARD_NOT_FOUND",
+    });
+  });
+
+  it("throws FLASHCARD_UPDATE_FAILED on a Supabase error", async () => {
+    const { client } = makeUpdateSupabase({ data: null, error: { message: "db error" } });
+
+    await expect(updateFlashcard(client, "user-1", "card-1", { frontText: "Front?" })).rejects.toMatchObject({
+      code: "FLASHCARD_UPDATE_FAILED",
     });
   });
 });

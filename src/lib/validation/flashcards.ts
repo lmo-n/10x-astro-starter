@@ -46,7 +46,7 @@ function isShortQuestion(value: string): boolean {
 /**
  * Front-text rules: required, trimmed, non-empty, capped, plain text, and short.
  */
-const frontTextSchema = z
+export const frontTextSchema = z
   .string({ message: "Front text is required." })
   .trim()
   .min(1, "Front text must not be empty.")
@@ -57,7 +57,7 @@ const frontTextSchema = z
 /**
  * Back-text rules: required, trimmed, non-empty, capped, plain text.
  */
-const backTextSchema = z
+export const backTextSchema = z
   .string({ message: "Back text is required." })
   .trim()
   .min(1, "Back text must not be empty.")
@@ -95,3 +95,47 @@ export const flashcardIdParamSchema = z.object({
 
 /** Parsed and validated `flashcardId` path parameter. */
 export type FlashcardIdParam = z.infer<typeof flashcardIdParamSchema>;
+
+/**
+ * Fields that must never be updated through the PATCH flashcard endpoint.
+ * Attempts to include any of these keys in the request body must be rejected
+ * with `IMMUTABLE_FLASHCARD_FIELDS` before reaching Zod validation.
+ */
+export const IMMUTABLE_FLASHCARD_KEYS = new Set([
+  "id",
+  "deckId",
+  "deck_id",
+  "createdByAi",
+  "created_by_ai",
+  "sm2",
+  "sm2_interval",
+  "sm2_repetition",
+  "sm2_ease_factor",
+  "dueAt",
+  "due_at",
+  "lastReviewedAt",
+  "last_reviewed_at",
+  "userId",
+  "user_id",
+  "createdAt",
+  "created_at",
+  "updatedAt",
+  "updated_at",
+]);
+
+/**
+ * Validation schema for `PATCH /api/flashcards/{flashcardId}` request body.
+ * Both fields are optional, but at least one must be present and non-empty.
+ * Unknown keys are rejected by `strictObject` so only editable fields pass.
+ */
+export const updateFlashcardSchema = z
+  .strictObject({
+    frontText: frontTextSchema.optional(),
+    backText: backTextSchema.optional(),
+  })
+  .refine((value) => value.frontText !== undefined || value.backText !== undefined, {
+    message: "At least one text field is required.",
+  });
+
+/** Parsed and validated payload for updating a flashcard's text. */
+export type UpdateFlashcardInput = z.infer<typeof updateFlashcardSchema>;

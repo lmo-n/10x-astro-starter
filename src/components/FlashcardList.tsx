@@ -40,6 +40,11 @@ export default function FlashcardList({ deckId, initialFlashcards, onCleared, de
     setFlashcards((prev) => prev.filter((c) => c.id !== id));
   }
 
+  /** Replace an updated flashcard in the list. */
+  function handleUpdated(updated: FlashcardDto) {
+    setFlashcards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+  }
+
   /** Clear all flashcards from local state after a successful bulk delete. */
   function handleCleared() {
     setFlashcards([]);
@@ -148,7 +153,7 @@ export default function FlashcardList({ deckId, initialFlashcards, onCleared, de
       ) : (
         <ul className="flex flex-col gap-3" data-deck-id={deckId}>
           {flashcards.map((card) => (
-            <Flashcard key={card.id} card={card} onDeleted={handleDeleted} />
+            <Flashcard key={card.id} card={card} onDeleted={handleDeleted} onUpdated={handleUpdated} />
           ))}
         </ul>
       )}

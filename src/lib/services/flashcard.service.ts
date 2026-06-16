@@ -5,6 +5,8 @@ import type {
   CreateFlashcardResponseDto,
   FlashcardDto,
   FlashcardRow,
+  UpdateFlashcardCommand,
+  UpdateFlashcardResponseDto,
 } from "@/types";
 
 /** Columns selected from `flashcards` to build a {@link FlashcardDto}. */
@@ -16,7 +18,8 @@ export type FlashcardServiceErrorCode =
   | "DECK_NOT_FOUND"
   | "FLASHCARD_CREATE_FAILED"
   | "FLASHCARD_NOT_FOUND"
-  | "FLASHCARD_DELETE_FAILED";
+  | "FLASHCARD_DELETE_FAILED"
+  | "FLASHCARD_UPDATE_FAILED";
 
 /**
  * Domain error thrown by the flashcard service. The `code` is mapped to an HTTP
@@ -236,4 +239,51 @@ export async function clearDeckFlashcards(
     message: "All flashcards deleted successfully",
     deletedCount: (deleted ?? []).length,
   };
+}
+
+/**
+ * Update the text fields of a single flashcard owned by the given user.
+ *
+ * Only `front_text` and/or `back_text` are written. SM-2 scheduling state,
+ * deck membership, AI-origin metadata, ownership, and timestamps (except for
+ * the DB-managed `updated_at`) are never touched.
+ *
+ * @param supabase    Authenticated Supabase SSR client (RLS scopes writes to the user).
+ * @param userId      Owner id, always derived from the session — never the request body.
+ * @param flashcardId UUID of the target flashcard (already validated by the route).
+ * @param command     Validated input ({@link UpdateFlashcardCommand}) with at least one text field.
+ * @throws {FlashcardServiceError} `FLASHCARD_NOT_FOUND` when the flashcard is absent or
+ *         owned by another user; `FLASHCARD_UPDATE_FAILED` for any other failure.
+ */
+export async function updateFlashcard(
+  supabase: SupabaseClient,
+  userId: string,
+  flashcardId: string,
+  command: UpdateFlashcardCommand,
+): Promise<UpdateFlashcardResponseDto> {
+  const updatePayload: Record<string, string> = {};
+  if (command.frontText !== undefined) {
+    updatePayload.front_text = command.frontText;
+  }
+  if (command.backText !== undefined) {
+    updatePayload.back_text = command.backText;
+  }
+
+  const { data: row, error } = await supabase
+    .from("flashcards")
+    .update(updatePayload)
+    .eq("id", flashcardId)
+    .eq("user_id", userId)
+    .select(FLASHCARD_COLUMNS)
+    .maybeSingle();
+
+  if (error) {
+    throw new FlashcardServiceError("FLASHCARD_UPDATE_FAILED", "Failed to update flashcard.", { cause: error });
+  }
+
+  if (!row) {
+    throw new FlashcardServiceError("FLASHCARD_NOT_FOUND", "Flashcard not found.");
+  }
+
+  return { flashcard: toFlashcardDto(row) };
 }
