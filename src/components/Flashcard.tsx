@@ -1,10 +1,21 @@
 import { useState } from "react";
 import type { FlashcardDto } from "@/types";
+import { frontTextSchema, backTextSchema } from "@/lib/validation/flashcards";
 
 interface Props {
   card: FlashcardDto;
   onDeleted: (id: string) => void;
   onUpdated: (updated: FlashcardDto) => void;
+}
+
+/** Validate both text fields and return per-field error strings. */
+function validateEditFields(front: string, back: string): { front: string | null; back: string | null } {
+  const frontResult = frontTextSchema.safeParse(front);
+  const backResult = backTextSchema.safeParse(back);
+  return {
+    front: frontResult.success ? null : (frontResult.error.issues[0]?.message ?? "Front text is invalid."),
+    back: backResult.success ? null : (backResult.error.issues[0]?.message ?? "Back text is invalid."),
+  };
 }
 
 export default function Flashcard({ card, onDeleted, onUpdated }: Props) {
@@ -16,12 +27,16 @@ export default function Flashcard({ card, onDeleted, onUpdated }: Props) {
   const [editFront, setEditFront] = useState(card.frontText);
   const [editBack, setEditBack] = useState(card.backText);
   const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [frontError, setFrontError] = useState<string | null>(null);
+  const [backError, setBackError] = useState<string | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
 
   function startEdit() {
     setEditFront(card.frontText);
     setEditBack(card.backText);
-    setSaveError(null);
+    setFrontError(null);
+    setBackError(null);
+    setServerError(null);
     setConfirmingDelete(false);
     setDeleteError(null);
     setEditing(true);
@@ -29,12 +44,20 @@ export default function Flashcard({ card, onDeleted, onUpdated }: Props) {
 
   function cancelEdit() {
     setEditing(false);
-    setSaveError(null);
+    setFrontError(null);
+    setBackError(null);
+    setServerError(null);
   }
 
   async function saveEdit() {
+    // Validate on the client before hitting the network.
+    const errors = validateEditFields(editFront, editBack);
+    setFrontError(errors.front);
+    setBackError(errors.back);
+    if (errors.front || errors.back) return;
+
     setSaving(true);
-    setSaveError(null);
+    setServerError(null);
 
     const body: Record<string, string> = {};
     if (editFront.trim() !== card.frontText) body.frontText = editFront;
@@ -52,7 +75,7 @@ export default function Flashcard({ card, onDeleted, onUpdated }: Props) {
 
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
-        setSaveError(data.error?.message ?? "Failed to save changes.");
+        setServerError(data.error?.message ?? "Failed to save changes.");
         return;
       }
 
@@ -60,7 +83,7 @@ export default function Flashcard({ card, onDeleted, onUpdated }: Props) {
       onUpdated(data.flashcard);
       setEditing(false);
     } catch {
-      setSaveError("Network error. Please try again.");
+      setServerError("Network error. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -94,27 +117,54 @@ export default function Flashcard({ card, onDeleted, onUpdated }: Props) {
       {editing ? (
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-xs tracking-wide text-gray-400 uppercase dark:text-blue-100/40">
-              Front
-            </label>
+            <div className="mb-1 flex items-center justify-between">
+              <label className="text-xs tracking-wide text-gray-400 uppercase dark:text-blue-100/40">Front</label>
+              <span
+                className={`text-xs tabular-nums ${editFront.trim().length > 500 ? "text-red-500" : "text-gray-400 dark:text-blue-100/40"}`}
+              >
+                {editFront.trim().length}/500
+              </span>
+            </div>
             <textarea
               value={editFront}
-              onChange={(e) => setEditFront(e.target.value)}
+              onChange={(e) => {
+                setEditFront(e.target.value);
+                setFrontError(null);
+              }}
               rows={3}
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-blue-400"
+              className={`w-full rounded-lg border px-3 py-2 text-sm text-gray-900 focus:outline-none dark:bg-white/5 dark:text-white ${
+                frontError
+                  ? "border-red-400 bg-red-50 focus:border-red-500 dark:border-red-500/60 dark:bg-red-500/10"
+                  : "border-gray-200 bg-white focus:border-blue-500 dark:border-white/10 dark:focus:border-blue-400"
+              }`}
             />
+            {frontError && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{frontError}</p>}
           </div>
           <div className="sm:border-l sm:border-gray-100 sm:pl-4 dark:sm:border-white/10">
-            <label className="mb-1 block text-xs tracking-wide text-gray-400 uppercase dark:text-blue-100/40">
-              Back
-            </label>
+            <div className="mb-1 flex items-center justify-between">
+              <label className="text-xs tracking-wide text-gray-400 uppercase dark:text-blue-100/40">Back</label>
+              <span
+                className={`text-xs tabular-nums ${editBack.trim().length > 3000 ? "text-red-500" : "text-gray-400 dark:text-blue-100/40"}`}
+              >
+                {editBack.trim().length}/3000
+              </span>
+            </div>
             <textarea
               value={editBack}
-              onChange={(e) => setEditBack(e.target.value)}
+              onChange={(e) => {
+                setEditBack(e.target.value);
+                setBackError(null);
+              }}
               rows={3}
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 focus:border-blue-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-blue-100/70 dark:focus:border-blue-400"
+              className={`w-full rounded-lg border px-3 py-2 text-sm text-gray-600 focus:outline-none dark:bg-white/5 dark:text-blue-100/70 ${
+                backError
+                  ? "border-red-400 bg-red-50 focus:border-red-500 dark:border-red-500/60 dark:bg-red-500/10"
+                  : "border-gray-200 bg-white focus:border-blue-500 dark:border-white/10 dark:focus:border-blue-400"
+              }`}
             />
+            {backError && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{backError}</p>}
           </div>
+          {serverError && <p className="col-span-full text-xs text-red-500 dark:text-red-400">{serverError}</p>}
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
@@ -204,10 +254,6 @@ export default function Flashcard({ card, onDeleted, onUpdated }: Props) {
           </div>
         )}
       </div>
-
-      {saveError && !editing && (
-        <p className="mt-2 text-xs text-red-400">{saveError}</p>
-      )}
 
       {confirmingDelete && (
         <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-500/30 dark:bg-red-500/10">

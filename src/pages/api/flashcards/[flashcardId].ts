@@ -3,11 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase";
 import { jsonError, jsonOk } from "@/lib/api/responses";
 import { flashcardIdParamSchema, IMMUTABLE_FLASHCARD_KEYS, updateFlashcardSchema } from "@/lib/validation/flashcards";
-import {
-  deleteFlashcard,
-  updateFlashcard,
-  FlashcardServiceError,
-} from "@/lib/services/flashcard.service";
+import { deleteFlashcard, updateFlashcard, FlashcardServiceError } from "@/lib/services/flashcard.service";
 import type { DeleteFlashcardResponseDto, UpdateFlashcardResponseDto } from "@/types";
 
 // SSR route: must not be prerendered so it runs per-request on Cloudflare Workers.

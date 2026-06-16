@@ -392,8 +392,17 @@ describe("updateFlashcard", () => {
 
     const payload = (update as ReturnType<typeof vi.fn>).mock.calls[0][0] as Record<string, unknown>;
     const forbidden = [
-      "sm2_interval", "sm2_repetition", "sm2_ease_factor", "due_at", "last_reviewed_at",
-      "deck_id", "created_by_ai", "user_id", "id", "created_at", "updated_at",
+      "sm2_interval",
+      "sm2_repetition",
+      "sm2_ease_factor",
+      "due_at",
+      "last_reviewed_at",
+      "deck_id",
+      "created_by_ai",
+      "user_id",
+      "id",
+      "created_at",
+      "updated_at",
     ];
     for (const key of forbidden) {
       expect(payload).not.toHaveProperty(key);
