@@ -109,7 +109,7 @@ export default function DeckCard({ deck, onDeleted }: Props) {
   }
 
   return (
-    <div className="group rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur transition-colors hover:border-white/20 hover:bg-white/10">
+    <div className="group rounded-2xl border border-gray-200 bg-white p-5 transition-colors hover:border-gray-300 hover:bg-gray-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10">
       {/* Name row */}
       <div className="mb-3 flex items-start gap-2">
         {editing ? (
@@ -123,21 +123,21 @@ export default function DeckCard({ deck, onDeleted }: Props) {
               onKeyDown={handleKeyDown}
               maxLength={100}
               disabled={saving}
-              className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm font-semibold text-white placeholder:text-blue-100/40 focus:ring-2 focus:ring-blue-400/50 focus:outline-none disabled:opacity-50"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500/50 focus:outline-none disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-blue-100/40 dark:focus:ring-blue-400/50"
             />
             {error && <p className="text-xs text-red-400">{error}</p>}
             <div className="flex gap-2">
               <button
                 onClick={() => void saveEdit()}
                 disabled={saving}
-                className="rounded-md bg-blue-500/30 px-3 py-1 text-xs text-blue-200 transition-colors hover:bg-blue-500/50 disabled:opacity-50"
+                className="rounded-md bg-blue-600 px-3 py-1 text-xs text-white transition-colors hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-500/30 dark:text-blue-200 dark:hover:bg-blue-500/50"
               >
                 {saving ? "Saving…" : "Save"}
               </button>
               <button
                 onClick={cancelEdit}
                 disabled={saving}
-                className="rounded-md border border-white/20 px-3 py-1 text-xs text-blue-100/60 transition-colors hover:bg-white/10 disabled:opacity-50"
+                className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50 dark:border-white/20 dark:text-blue-100/60 dark:hover:bg-white/10"
               >
                 Cancel
               </button>
@@ -145,13 +145,16 @@ export default function DeckCard({ deck, onDeleted }: Props) {
           </div>
         ) : (
           <>
-            <h2 className="flex-1 leading-snug font-semibold wrap-break-word text-white" title={name}>
+            <h2
+              className="flex-1 leading-snug font-semibold wrap-break-word text-gray-900 dark:text-white"
+              title={name}
+            >
               {name}
             </h2>
             <button
               onClick={startEdit}
               title="Rename deck"
-              className="mt-0.5 shrink-0 cursor-pointer rounded p-1 text-blue-100/40 transition-opacity hover:bg-white/10 hover:text-blue-100/80 sm:opacity-0 sm:group-hover:opacity-100"
+              className="mt-0.5 shrink-0 cursor-pointer rounded p-1 text-gray-400 transition-opacity hover:bg-gray-100 hover:text-gray-600 sm:opacity-0 sm:group-hover:opacity-100 dark:text-blue-100/40 dark:hover:bg-white/10 dark:hover:text-blue-100/80"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -174,7 +177,7 @@ export default function DeckCard({ deck, onDeleted }: Props) {
                 setDeleteError(null);
               }}
               title="Delete deck"
-              className="mt-0.5 shrink-0 cursor-pointer rounded p-1 text-blue-100/40 transition-opacity hover:bg-red-500/20 hover:text-red-300 sm:opacity-0 sm:group-hover:opacity-100"
+              className="mt-0.5 shrink-0 cursor-pointer rounded p-1 text-gray-400 transition-opacity hover:bg-red-100 hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100 dark:text-blue-100/40 dark:hover:bg-red-500/20 dark:hover:text-red-300"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -197,8 +200,8 @@ export default function DeckCard({ deck, onDeleted }: Props) {
 
       {/* Delete confirmation */}
       {confirmingDelete && (
-        <div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3">
-          <p className="text-sm text-red-200">
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-500/30 dark:bg-red-500/10">
+          <p className="text-sm text-red-700 dark:text-red-200">
             Delete <span className="font-semibold">{name}</span> and all its flashcards? This cannot be undone.
           </p>
           {deleteError && <p className="mt-1.5 text-xs text-red-400">{deleteError}</p>}
@@ -206,7 +209,7 @@ export default function DeckCard({ deck, onDeleted }: Props) {
             <button
               onClick={() => void deleteDeck()}
               disabled={deleting}
-              className="rounded-md bg-red-500/40 px-3 py-1 text-xs text-red-100 transition-colors hover:bg-red-500/60 disabled:opacity-50"
+              className="rounded-md bg-red-600 px-3 py-1 text-xs text-white transition-colors hover:bg-red-700 disabled:opacity-50 dark:bg-red-500/40 dark:text-red-100 dark:hover:bg-red-500/60"
             >
               {deleting ? "Deleting…" : "Delete"}
             </button>
@@ -216,7 +219,7 @@ export default function DeckCard({ deck, onDeleted }: Props) {
                 setDeleteError(null);
               }}
               disabled={deleting}
-              className="rounded-md border border-white/20 px-3 py-1 text-xs text-blue-100/60 transition-colors hover:bg-white/10 disabled:opacity-50"
+              className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50 dark:border-white/20 dark:text-blue-100/60 dark:hover:bg-white/10"
             >
               Cancel
             </button>
@@ -226,7 +229,7 @@ export default function DeckCard({ deck, onDeleted }: Props) {
 
       {/* Stats row */}
       <div className="flex gap-4 text-sm">
-        <div className="flex items-center gap-1.5 text-blue-100/70">
+        <div className="flex items-center gap-1.5 text-gray-500 dark:text-blue-100/70">
           <svg
             className="h-4 w-4 shrink-0"
             xmlns="http://www.w3.org/2000/svg"
@@ -244,7 +247,7 @@ export default function DeckCard({ deck, onDeleted }: Props) {
           <span>{deck.flashcardsCount} cards</span>
         </div>
         {deck.dueFlashcardsCount > 0 && (
-          <div className="flex items-center gap-1.5 text-amber-300">
+          <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-300">
             <svg
               className="h-4 w-4 shrink-0"
               xmlns="http://www.w3.org/2000/svg"
@@ -264,7 +267,9 @@ export default function DeckCard({ deck, onDeleted }: Props) {
         )}
       </div>
 
-      <p className="mt-3 text-xs text-blue-100/40">Updated {new Date(deck.updatedAt).toLocaleDateString()}</p>
+      <p className="mt-3 text-xs text-gray-400 dark:text-blue-100/40">
+        Updated {new Date(deck.updatedAt).toLocaleDateString()}
+      </p>
     </div>
   );
 }

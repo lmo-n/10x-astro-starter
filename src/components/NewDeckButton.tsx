@@ -38,7 +38,7 @@ export default function NewDeckButton({ canCreate, onCreated }: Props) {
         }}
         disabled={!canCreate}
         title={canCreate ? "Create a new deck" : "Deck limit reached"}
-        className="flex items-center gap-1.5 rounded-lg bg-blue-500/30 px-4 py-2 text-sm whitespace-nowrap text-blue-100 transition-colors enabled:cursor-pointer hover:bg-blue-500/50 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm whitespace-nowrap text-white transition-colors hover:bg-blue-700 enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 dark:bg-blue-500/30 dark:text-blue-100 dark:hover:bg-blue-500/50"
       >
         <svg
           className="h-4 w-4"
@@ -71,13 +71,13 @@ export default function NewDeckButton({ canCreate, onCreated }: Props) {
           maxLength={100}
           disabled={creating}
           placeholder="Deck name…"
-          className="w-44 rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-blue-100/40 focus:ring-2 focus:ring-blue-400/50 focus:outline-none disabled:opacity-50"
+          className="w-44 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500/50 focus:outline-none disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-blue-100/40 dark:focus:ring-blue-400/50"
         />
         <button
           type="button"
           onClick={() => void create(name)}
           disabled={creating}
-          className="cursor-pointer rounded-lg bg-blue-500/30 px-4 py-2 text-sm whitespace-nowrap text-blue-100 transition-colors hover:bg-blue-500/50 disabled:opacity-50"
+          className="cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm whitespace-nowrap text-white transition-colors hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-500/30 dark:text-blue-100 dark:hover:bg-blue-500/50"
         >
           {creating ? "Creating…" : "Create"}
         </button>
@@ -85,7 +85,7 @@ export default function NewDeckButton({ canCreate, onCreated }: Props) {
           type="button"
           onClick={close}
           disabled={creating}
-          className="cursor-pointer rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-sm whitespace-nowrap text-blue-100/70 transition-colors hover:bg-white/10 disabled:opacity-50"
+          className="cursor-pointer rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm whitespace-nowrap text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50 dark:border-white/20 dark:bg-white/5 dark:text-blue-100/70 dark:hover:bg-white/10"
         >
           Cancel
         </button>

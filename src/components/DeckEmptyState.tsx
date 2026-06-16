@@ -27,11 +27,11 @@ export default function DeckEmptyState({ isSearchResult, searchTerm, onCreated }
   }
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 py-16 text-center backdrop-blur">
-      <p className="text-lg font-medium text-blue-100/60">
+    <div className="rounded-2xl border border-gray-200 bg-gray-50 py-16 text-center dark:border-white/10 dark:bg-white/5">
+      <p className="text-lg font-medium text-gray-500 dark:text-blue-100/60">
         {isSearchResult ? `No decks matching "${searchTerm}"` : "No decks yet"}
       </p>
-      <p className="mt-1 text-sm text-blue-100/40">
+      <p className="mt-1 text-sm text-gray-400 dark:text-blue-100/40">
         {isSearchResult ? "Try a different search term." : "Create your first deck to get started."}
       </p>
       {!isSearchResult && (
@@ -49,12 +49,12 @@ export default function DeckEmptyState({ isSearchResult, searchTerm, onCreated }
               maxLength={100}
               disabled={creating}
               placeholder="Deck name…"
-              className="flex-1 rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-blue-100/40 focus:ring-2 focus:ring-blue-400/50 focus:outline-none disabled:opacity-50"
+              className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500/50 focus:outline-none disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-blue-100/40 dark:focus:ring-blue-400/50"
             />
             <button
               onClick={() => void handleCreate()}
               disabled={creating}
-              className="cursor-pointer rounded-lg bg-blue-500/30 px-4 py-2 text-sm whitespace-nowrap text-blue-100 transition-colors hover:bg-blue-500/50 disabled:opacity-50"
+              className="cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm whitespace-nowrap text-white transition-colors hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-500/30 dark:text-blue-100 dark:hover:bg-blue-500/50"
             >
               {creating ? "Creating…" : "Create deck"}
             </button>

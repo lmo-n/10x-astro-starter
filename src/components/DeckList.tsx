@@ -66,19 +66,19 @@ export default function DeckList({ initialDecks, initialLimits, query, searchPar
     <>
       {/* Deck limits bar */}
       {limits && (
-        <div className="mb-6 rounded-xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur">
+        <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 backdrop-blur dark:border-white/10 dark:bg-white/5">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-blue-100/70">
-              <span className="font-semibold text-white">{limits.deckCount}</span> / <span>{limits.deckLimit}</span>{" "}
-              decks used
+            <span className="text-gray-600 dark:text-blue-100/70">
+              <span className="font-semibold text-gray-900 dark:text-white">{limits.deckCount}</span> /{" "}
+              <span>{limits.deckLimit}</span> decks used
             </span>
             {!limits.canCreateDeck && (
-              <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
                 Deck limit reached
               </span>
             )}
           </div>
-          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
             <div
               className="h-full rounded-full bg-linear-to-r from-blue-400 to-purple-400 transition-all"
               style={{ width: `${usedPct}%` }}
@@ -101,10 +101,10 @@ export default function DeckList({ initialDecks, initialLimits, query, searchPar
               name="search"
               defaultValue={query.search ?? ""}
               placeholder="Search decks…"
-              className="w-full rounded-lg border border-white/20 bg-white/10 py-2 pr-4 pl-9 text-sm text-white placeholder:text-blue-100/40 focus:ring-2 focus:ring-blue-400/50 focus:outline-none"
+              className="w-full rounded-lg border border-gray-300 bg-white py-2 pr-4 pl-9 text-sm text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500/50 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-blue-100/40 dark:focus:ring-blue-400/50"
             />
             <svg
-              className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-blue-100/40"
+              className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-blue-100/40"
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
@@ -120,24 +120,24 @@ export default function DeckList({ initialDecks, initialLimits, query, searchPar
           </div>
           <button
             type="submit"
-            className="rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm whitespace-nowrap transition-colors hover:bg-white/20"
+            className="rounded-lg border border-gray-300 bg-gray-100 px-4 py-2 text-sm whitespace-nowrap text-gray-700 transition-colors hover:bg-gray-200 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
           >
             Search
           </button>
         </form>
 
         {/* Divider */}
-        <div className="hidden h-6 w-px bg-white/10 sm:block" />
+        <div className="hidden h-6 w-px bg-gray-200 sm:block dark:bg-white/10" />
 
         {/* New deck */}
         <NewDeckButton canCreate={limits ? limits.canCreateDeck : true} onCreated={handleCreated} />
 
         {/* Divider */}
-        <div className="hidden h-6 w-px bg-white/10 sm:block" />
+        <div className="hidden h-6 w-px bg-gray-200 sm:block dark:bg-white/10" />
 
         {/* Sort buttons */}
         <div className="flex flex-wrap items-center gap-1.5 self-start sm:self-auto">
-          <span className="text-xs tracking-wide text-blue-100/40 uppercase">Sort:</span>
+          <span className="text-xs tracking-wide text-gray-400 uppercase dark:text-blue-100/40">Sort:</span>
           {SORT_OPTIONS.map(({ value, label }) => {
             const isActive = query.sort === value;
             const toggleOrder = isActive && query.order === "asc" ? "desc" : "asc";
@@ -149,8 +149,8 @@ export default function DeckList({ initialDecks, initialLimits, query, searchPar
                 className={[
                   "flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs transition-colors",
                   isActive
-                    ? "border-blue-400/50 bg-blue-500/20 text-blue-200"
-                    : "border-white/20 bg-white/5 text-blue-100/60 hover:bg-white/10",
+                    ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400/50 dark:bg-blue-500/20 dark:text-blue-200"
+                    : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-white/20 dark:bg-white/5 dark:text-blue-100/60 dark:hover:bg-white/10",
                 ].join(" ")}
               >
                 {label}
@@ -173,7 +173,7 @@ export default function DeckList({ initialDecks, initialLimits, query, searchPar
 
       {/* Error state */}
       {fetchError && (
-        <div className="mb-6 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div className="mb-6 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-400/30 dark:bg-red-500/10 dark:text-red-300">
           {fetchError}
         </div>
       )}
@@ -194,7 +194,7 @@ export default function DeckList({ initialDecks, initialLimits, query, searchPar
         <div className="mt-8 flex justify-center">
           <a
             href={nextPageUrl}
-            className="rounded-lg border border-white/20 bg-white/10 px-6 py-2 text-sm transition-colors hover:bg-white/20"
+            className="rounded-lg border border-gray-300 bg-white px-6 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
           >
             Next page
           </a>
