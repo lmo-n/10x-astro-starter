@@ -52,6 +52,29 @@ export function toFlashcardDto(row: FlashcardRow): FlashcardDto {
 }
 
 /**
+ * Fetch all flashcards belonging to a deck owned by the given user.
+ *
+ * @param supabase Authenticated Supabase SSR client (RLS scopes reads to the user).
+ * @param userId   Owner id, always derived from the session.
+ * @param deckId   UUID of the target deck (already validated by the caller).
+ * @throws {FlashcardServiceError} `FLASHCARD_CREATE_FAILED` on a query failure.
+ */
+export async function getFlashcards(supabase: SupabaseClient, userId: string, deckId: string): Promise<FlashcardDto[]> {
+  const { data, error } = await supabase
+    .from("flashcards")
+    .select(FLASHCARD_COLUMNS)
+    .eq("deck_id", deckId)
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new FlashcardServiceError("FLASHCARD_CREATE_FAILED", "Failed to fetch flashcards.", { cause: error });
+  }
+
+  return (data ?? []).map(toFlashcardDto);
+}
+
+/**
  * Create a single manual flashcard inside a deck owned by the given user.
  *
  * The deck ownership is verified before inserting so a missing or foreign deck

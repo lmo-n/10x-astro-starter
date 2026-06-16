@@ -4,6 +4,7 @@ import DashboardHeader from "@/components/DashboardHeader.astro";
 import FlashcardList from "@/components/FlashcardList.tsx";
 import { createClient } from "@/lib/supabase";
 import { getDeck, DeckServiceError } from "@/lib/services/deck.service";
+import { getFlashcards } from "@/lib/services/flashcard.service";
 import { deckIdParamSchema } from "@/lib/validation/decks";
 import type { DeckDto, FlashcardDto } from "@/types";
 
@@ -13,6 +14,7 @@ const { user } = Astro.locals;
 const params = deckIdParamSchema.safeParse(Astro.params);
 
 let deck: DeckDto | null = null;
+let flashcards: FlashcardDto[] = [];
 let notFound = !params.success;
 let fetchError: string | null = null;
 
@@ -22,6 +24,7 @@ if (params.success && user) {
     try {
       const result = await getDeck(supabase, user.id, params.data.deckId);
       deck = result.deck;
+      flashcards = await getFlashcards(supabase, user.id, params.data.deckId);
     } catch (e) {
       if (e instanceof DeckServiceError && e.code === "DECK_NOT_FOUND") {
         notFound = true;
@@ -37,10 +40,6 @@ if (params.success && user) {
 if (notFound) {
   Astro.response.status = 404;
 }
-
-// Flashcards are rendered by the list component below. The data source is wired
-// up separately; the deck view renders the (currently empty) list scaffold.
-const flashcards: FlashcardDto[] = [];
 ---
 
 <AppLayout title={deck ? deck.name : "Deck"}>
