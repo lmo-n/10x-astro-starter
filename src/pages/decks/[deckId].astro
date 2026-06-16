@@ -1,0 +1,104 @@
+---
+import AppLayout from "@/layouts/AppLayout.astro";
+import DashboardHeader from "@/components/DashboardHeader.astro";
+import FlashcardList from "@/components/FlashcardList.tsx";
+import { createClient } from "@/lib/supabase";
+import { getDeck, DeckServiceError } from "@/lib/services/deck.service";
+import { deckIdParamSchema } from "@/lib/validation/decks";
+import type { DeckDto, FlashcardDto } from "@/types";
+
+const { user } = Astro.locals;
+
+// Validate the `deckId` path parameter as a UUID.
+const params = deckIdParamSchema.safeParse(Astro.params);
+
+let deck: DeckDto | null = null;
+let notFound = !params.success;
+let fetchError: string | null = null;
+
+if (params.success && user) {
+  const supabase = createClient(Astro.request.headers, Astro.cookies);
+  if (supabase) {
+    try {
+      const result = await getDeck(supabase, user.id, params.data.deckId);
+      deck = result.deck;
+    } catch (e) {
+      if (e instanceof DeckServiceError && e.code === "DECK_NOT_FOUND") {
+        notFound = true;
+      } else {
+        fetchError = e instanceof Error ? e.message : "Failed to load deck.";
+      }
+    }
+  } else {
+    fetchError = "The server is not configured correctly.";
+  }
+}
+
+if (notFound) {
+  Astro.response.status = 404;
+}
+
+// Flashcards are rendered by the list component below. The data source is wired
+// up separately; the deck view renders the (currently empty) list scaffold.
+const flashcards: FlashcardDto[] = [];
+---
+
+<AppLayout title={deck ? deck.name : "Deck"}>
+  <DashboardHeader email={user?.email} />
+
+  <!-- Back link under the header -->
+  <a
+    href="/dashboard"
+    class="mb-6 inline-flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-900 dark:text-blue-100/60 dark:hover:text-white"
+  >
+    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+    </svg>
+    Back to decks
+  </a>
+
+  {
+    notFound ? (
+      <div class="rounded-2xl border border-gray-200 bg-gray-50 px-6 py-12 text-center dark:border-white/10 dark:bg-white/5">
+        <h1 class="mb-2 text-xl font-bold text-gray-900 dark:text-white">Deck not found</h1>
+        <p class="mb-6 text-sm text-gray-500 dark:text-blue-100/60">
+          This deck doesn&apos;t exist or you don&apos;t have access to it.
+        </p>
+        <a
+          href="/dashboard"
+          class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
+        >
+          Back to decks
+        </a>
+      </div>
+    ) : fetchError ? (
+      <div class="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-400/30 dark:bg-red-500/10 dark:text-red-300">
+        {fetchError}
+      </div>
+    ) : (
+      deck && (
+        <>
+          {/* Deck header */}
+          <div class="mb-8">
+            <h1 class="bg-linear-to-r from-blue-600 to-purple-600 bg-clip-text text-2xl font-bold wrap-break-word text-transparent sm:text-3xl dark:from-blue-200 dark:to-purple-200">
+              {deck.name}
+            </h1>
+            <div class="mt-2 flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-blue-100/60">
+              <span>
+                <span class="font-semibold text-gray-900 dark:text-white">{deck.flashcardsCount}</span> cards
+              </span>
+              {deck.dueFlashcardsCount > 0 && (
+                <span class="text-amber-600 dark:text-amber-300">{deck.dueFlashcardsCount} due</span>
+              )}
+              <span>Updated {new Date(deck.updatedAt).toLocaleDateString()}</span>
+            </div>
+          </div>
+
+          {/* Flashcards list */}
+          <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Flashcards</h2>
+          <FlashcardList client:load deckId={deck.id} initialFlashcards={flashcards} />
+        </>
+      )
+    )
+  }
+</AppLayout>

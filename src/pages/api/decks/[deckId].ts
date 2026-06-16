@@ -3,8 +3,8 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase";
 import { jsonError, jsonOk } from "@/lib/api/responses";
 import { deckIdParamSchema, renameDeckSchema } from "@/lib/validation/decks";
-import { renameDeck, deleteDeck, DeckServiceError } from "@/lib/services/deck.service";
-import type { DeleteDeckResponseDto, RenameDeckCommand, RenameDeckResponseDto } from "@/types";
+import { getDeck, renameDeck, deleteDeck, DeckServiceError } from "@/lib/services/deck.service";
+import type { DeleteDeckResponseDto, GetDeckResponseDto, RenameDeckCommand, RenameDeckResponseDto } from "@/types";
 
 // SSR route: must not be prerendered so it runs per-request on Cloudflare Workers.
 export const prerender = false;
@@ -25,6 +25,58 @@ function isSameOrigin(request: Request): boolean {
     return false;
   }
 }
+
+/**
+ * GET /api/decks/{deckId} — fetch a single deck owned by the authenticated user,
+ * enriched with its current flashcard counters.
+ *
+ * Flow:
+ *  1. Require an authenticated session (`context.locals.user`) → 401 otherwise.
+ *  2. Create the Supabase client → 500 `CONFIG_ERROR` when not configured.
+ *  3. Validate the `deckId` path parameter as a UUID → 400 otherwise.
+ *  4. Delegate to `getDeck` and map domain errors to HTTP statuses.
+ *  5. Return 200 with `GetDeckResponseDto`.
+ */
+export const GET: APIRoute = async (context) => {
+  // 1. Authentication — the route verifies the session itself, not just middleware.
+  const user = context.locals.user;
+  if (!user) {
+    return jsonError(401, "AUTH_REQUIRED", "Authentication is required to view a deck.");
+  }
+
+  // 2. Supabase client — guard against missing configuration.
+  const supabase = createClient(context.request.headers, context.cookies);
+  if (!supabase) {
+    return jsonError(500, "CONFIG_ERROR", "The server is not configured correctly.");
+  }
+
+  // 3. Path parameter validation.
+  const params = deckIdParamSchema.safeParse(context.params);
+  if (!params.success) {
+    return jsonError(400, "INVALID_DECK_ID", "Deck id is invalid.", {
+      issues: z.treeifyError(params.error),
+    });
+  }
+
+  // 4. Fetch the deck and map domain errors to HTTP responses.
+  try {
+    const result: GetDeckResponseDto = await getDeck(supabase, user.id, params.data.deckId);
+    // 5. Success.
+    return jsonOk(result, 200);
+  } catch (error) {
+    if (error instanceof DeckServiceError) {
+      if (error.code === "DECK_NOT_FOUND") {
+        return jsonError(404, "DECK_NOT_FOUND", "Deck not found.");
+      }
+      // eslint-disable-next-line no-console
+      console.error("[GET /api/decks/:deckId] deck fetch failed:", error.cause ?? error);
+      return jsonError(500, "DECK_LIST_FAILED", "Failed to load deck.");
+    }
+    // eslint-disable-next-line no-console
+    console.error("[GET /api/decks/:deckId] unexpected error:", error);
+    return jsonError(500, "DECK_LIST_FAILED", "Failed to load deck.");
+  }
+};
 
 /**
  * PATCH /api/decks/{deckId} — rename a deck owned by the authenticated user.

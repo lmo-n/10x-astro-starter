@@ -1,18 +1,12 @@
 ---
-import Layout from "@/layouts/Layout.astro";
+import AppLayout from "@/layouts/AppLayout.astro";
 import DashboardHeader from "@/components/DashboardHeader.astro";
 import DeckList from "@/components/DeckList.astro";
-import Footer from "@/components/Footer.astro";
 
 const { user } = Astro.locals;
 ---
 
-<Layout title="Dashboard">
-  <div class="dark:bg-cosmic min-h-screen bg-white px-4 py-6 text-gray-900 sm:px-6 lg:px-8 dark:text-white">
-    <div class="mx-auto max-w-6xl">
-      <DashboardHeader email={user?.email} />
-      <DeckList />
-      <Footer />
-    </div>
-  </div>
-</Layout>
+<AppLayout title="Dashboard">
+  <DashboardHeader email={user?.email} />
+  <DeckList />
+</AppLayout>

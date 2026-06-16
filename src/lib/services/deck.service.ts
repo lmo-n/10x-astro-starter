@@ -5,6 +5,7 @@ import type {
   DeckDto,
   DeckLimitsDto,
   DeckRow,
+  GetDeckResponseDto,
   ListDecksResponseDto,
   PaginationDto,
   RenameDeckCommand,
@@ -163,6 +164,56 @@ async function getDeckCounters(supabase: SupabaseClient, userId: string, deckId:
     flashcardsCount: total ?? 0,
     dueFlashcardsCount: due ?? 0,
   };
+}
+
+/**
+ * Fetch a single deck owned by the given user, enriched with its current
+ * flashcard counters.
+ *
+ * The read is scoped by both `id` and `user_id` (defence in depth with RLS), so
+ * a user can only read their own deck. A non-existent deck or one owned by
+ * another user is indistinguishable and surfaces as `DECK_NOT_FOUND` (404) to
+ * prevent resource enumeration.
+ *
+ * @param supabase Authenticated Supabase SSR client (RLS scopes reads to the user).
+ * @param userId   Owner id, always derived from the session — never the request.
+ * @param deckId   UUID of the deck to fetch (already validated by the route).
+ * @throws {DeckServiceError} `DECK_NOT_FOUND` when no owned deck matches;
+ *         `DECK_LIST_FAILED` for any other persistence failure.
+ */
+export async function getDeck(supabase: SupabaseClient, userId: string, deckId: string): Promise<GetDeckResponseDto> {
+  // 1. Fetch the deck row, scoped to the owning user.
+  const { data, error } = await supabase
+    .from("decks")
+    .select("id, name, created_at, updated_at")
+    .eq("id", deckId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new DeckServiceError("DECK_LIST_FAILED", "Failed to load deck.", { cause: error });
+  }
+
+  // 2. No row returned → deck missing or not owned by the requester.
+  if (!data) {
+    throw new DeckServiceError("DECK_NOT_FOUND", "Deck not found.");
+  }
+
+  const row = data as DeckRow;
+
+  // 3. Enrich with the deck's current flashcard counters.
+  const counters = await getDeckCounters(supabase, userId, deckId);
+
+  const deck: DeckDto = {
+    id: row.id,
+    name: row.name,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    flashcardsCount: counters.flashcardsCount,
+    dueFlashcardsCount: counters.dueFlashcardsCount,
+  };
+
+  return { deck };
 }
 
 /**

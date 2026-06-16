@@ -145,11 +145,13 @@ export default function DeckCard({ deck, onDeleted }: Props) {
           </div>
         ) : (
           <>
-            <h2
-              className="flex-1 leading-snug font-semibold wrap-break-word text-gray-900 dark:text-white"
-              title={name}
-            >
-              {name}
+            <h2 className="flex-1 leading-snug font-semibold wrap-break-word" title={name}>
+              <a
+                href={`/decks/${deck.id}`}
+                className="text-gray-900 transition-colors hover:text-blue-600 hover:underline dark:text-white dark:hover:text-blue-300"
+              >
+                {name}
+              </a>
             </h2>
             <button
               onClick={startEdit}
@@ -270,6 +272,23 @@ export default function DeckCard({ deck, onDeleted }: Props) {
       <p className="mt-3 text-xs text-gray-400 dark:text-blue-100/40">
         Updated {new Date(deck.updatedAt).toLocaleDateString()}
       </p>
+
+      {/* Open deck (view flashcards) */}
+      <a
+        href={`/decks/${deck.id}`}
+        className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200"
+      >
+        Open deck
+        <svg
+          className="h-4 w-4"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </a>
     </div>
   );
 }

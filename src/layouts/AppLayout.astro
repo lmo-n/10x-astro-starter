@@ -1,0 +1,20 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import Footer from "@/components/Footer.astro";
+
+interface Props {
+  /** Document title passed through to the base HTML layout. */
+  title?: string;
+}
+
+const { title } = Astro.props;
+---
+
+<Layout title={title}>
+  <div class="dark:bg-cosmic min-h-screen bg-white px-4 py-6 text-gray-900 sm:px-6 lg:px-8 dark:text-white">
+    <div class="mx-auto max-w-6xl">
+      <slot />
+      <Footer />
+    </div>
+  </div>
+</Layout>
