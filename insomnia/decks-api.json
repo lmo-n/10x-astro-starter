@@ -21,7 +21,8 @@
         "base_url": "http://localhost:4321",
         "email": "user@example.com",
         "password": "your-password-here",
-        "deck_id": "00000000-0000-0000-0000-000000000000"
+        "deck_id": "00000000-0000-0000-0000-000000000000",
+        "flashcard_id": "00000000-0000-0000-0000-000000000000"
       }
     },
     {
@@ -229,6 +230,120 @@
       "description": "DELETE /api/decks/{deckId}\n\nPermanently deletes a deck owned by the authenticated user. All flashcards belonging to the deck are removed via the ON DELETE CASCADE foreign key — no separate step is needed.\n\nPath parameters:\n- deckId  (UUID, required)\n\nResponses:\n- 200  DeleteDeckResponseDto  { message: \"Deck deleted successfully\" }\n- 400  INVALID_DECK_ID\n- 401  AUTH_REQUIRED\n- 403  FORBIDDEN_ORIGIN\n- 404  DECK_NOT_FOUND\n- 500  DECK_DELETE_FAILED | CONFIG_ERROR",
       "method": "DELETE",
       "url": "{{ _.base_url }}/api/decks/{{ _.deck_id }}",
+      "headers": [
+        {
+          "name": "Origin",
+          "value": "{{ _.base_url }}",
+          "description": "Required: Astro's built-in CSRF check (security.checkOrigin) blocks DELETE without a matching Origin header."
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "body": {}
+    },
+
+    {
+      "_id": "fld_flashcards",
+      "_type": "request_group",
+      "parentId": "wrk_decks_api",
+      "name": "Flashcards",
+      "description": "Endpoints for creating, editing, deleting one, and deleting all flashcards in a deck. Requires a valid session — run Auth → Sign In first. Set deck_id from a deck response and flashcard_id from a create/list flashcard response."
+    },
+
+    {
+      "_id": "req_create_flashcard",
+      "_type": "request",
+      "parentId": "fld_flashcards",
+      "name": "Create Flashcard",
+      "description": "POST /api/decks/{deckId}/flashcards\n\nCreates one manual flashcard inside a deck owned by the authenticated user. Text is trimmed and must be plain text. Unknown body keys are rejected.\n\nPath parameters:\n- deckId  (UUID, required)\n\nRequest body (JSON):\n- frontText  (string, required, 1–500 chars, plain text, at most two sentence-ending punctuation marks)\n- backText   (string, required, 1–3000 chars, plain text)\n\nResponses:\n- 201  CreateFlashcardResponseDto  { flashcard: FlashcardDto }\n- 400  INVALID_BODY | INVALID_FLASHCARD_TEXT | INVALID_DECK_ID\n- 401  AUTH_REQUIRED\n- 403  FORBIDDEN_ORIGIN\n- 404  DECK_NOT_FOUND\n- 500  FLASHCARD_CREATE_FAILED | CONFIG_ERROR",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/decks/{{ _.deck_id }}/flashcards",
+      "headers": [
+        {
+          "name": "Origin",
+          "value": "{{ _.base_url }}",
+          "description": "Required: Astro's built-in CSRF check (security.checkOrigin) blocks POST without a matching Origin header."
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"frontText\": \"What is spaced repetition?\",\n  \"backText\": \"A study technique that reviews material at increasing intervals to improve long-term retention.\"\n}"
+      }
+    },
+
+    {
+      "_id": "req_update_flashcard",
+      "_type": "request",
+      "parentId": "fld_flashcards",
+      "name": "Edit Flashcard",
+      "description": "PATCH /api/flashcards/{flashcardId}\n\nUpdates the text fields of a single flashcard owned by the authenticated user. Only frontText and/or backText may be changed. Deck membership, AI flag, SM-2 state, and timestamps are immutable through this endpoint.\n\nPath parameters:\n- flashcardId  (UUID, required)\n\nRequest body (JSON):\n- frontText  (string, optional, 1–500 chars, plain text, at most two sentence-ending punctuation marks)\n- backText   (string, optional, 1–3000 chars, plain text)\n\nResponses:\n- 200  UpdateFlashcardResponseDto  { flashcard: FlashcardDto }\n- 400  INVALID_BODY | INVALID_FLASHCARD_TEXT | INVALID_FLASHCARD_ID | IMMUTABLE_FLASHCARD_FIELDS\n- 401  AUTH_REQUIRED\n- 403  FORBIDDEN_ORIGIN\n- 404  FLASHCARD_NOT_FOUND\n- 500  FLASHCARD_UPDATE_FAILED | CONFIG_ERROR",
+      "method": "PATCH",
+      "url": "{{ _.base_url }}/api/flashcards/{{ _.flashcard_id }}",
+      "headers": [
+        {
+          "name": "Origin",
+          "value": "{{ _.base_url }}",
+          "description": "Required: Astro's built-in CSRF check (security.checkOrigin) blocks PATCH without a matching Origin header."
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"frontText\": \"What does spaced repetition optimize?\",\n  \"backText\": \"It schedules reviews near the moment you are likely to forget, improving retention with fewer reviews.\"\n}"
+      }
+    },
+
+    {
+      "_id": "req_delete_flashcard",
+      "_type": "request",
+      "parentId": "fld_flashcards",
+      "name": "Remove Flashcard",
+      "description": "DELETE /api/flashcards/{flashcardId}\n\nPermanently deletes a single flashcard owned by the authenticated user. The parent deck and other flashcards are preserved.\n\nPath parameters:\n- flashcardId  (UUID, required)\n\nResponses:\n- 200  DeleteFlashcardResponseDto  { message: \"Flashcard deleted successfully\" }\n- 400  INVALID_FLASHCARD_ID\n- 401  AUTH_REQUIRED\n- 403  FORBIDDEN_ORIGIN\n- 404  FLASHCARD_NOT_FOUND\n- 500  FLASHCARD_DELETE_FAILED | CONFIG_ERROR",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/api/flashcards/{{ _.flashcard_id }}",
+      "headers": [
+        {
+          "name": "Origin",
+          "value": "{{ _.base_url }}",
+          "description": "Required: Astro's built-in CSRF check (security.checkOrigin) blocks DELETE without a matching Origin header."
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "body": {}
+    },
+
+    {
+      "_id": "req_clear_deck_flashcards",
+      "_type": "request",
+      "parentId": "fld_flashcards",
+      "name": "Remove All Flashcards",
+      "description": "DELETE /api/decks/{deckId}/flashcards\n\nPermanently removes all flashcards from a deck owned by the authenticated user. The deck itself is preserved.\n\nPath parameters:\n- deckId  (UUID, required)\n\nResponses:\n- 200  ClearDeckFlashcardsResponseDto  { message: string, deletedCount: number }\n- 400  INVALID_DECK_ID\n- 401  AUTH_REQUIRED\n- 403  FORBIDDEN_ORIGIN\n- 404  DECK_NOT_FOUND\n- 500  FLASHCARD_DELETE_FAILED | CONFIG_ERROR",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/api/decks/{{ _.deck_id }}/flashcards",
       "headers": [
         {
           "name": "Origin",
