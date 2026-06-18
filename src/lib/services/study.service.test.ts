@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getDueStudyQueue, toStudyQueueItemDto, StudyServiceError } from "./study.service";
+import {
+  calculateSm2Schedule,
+  getDueStudyQueue,
+  submitStudyReview,
+  toStudyQueueItemDto,
+  StudyServiceError,
+} from "./study.service";
 import type { FlashcardRow } from "@/types";
 import type { StudyDueInput } from "@/lib/validation/study";
 
@@ -219,5 +225,165 @@ describe("getDueStudyQueue", () => {
     await expect(
       getDueStudyQueue(client, "user-1", { limit: 20, cursor: "!!!not-base64-json!!!", includeFuturePreview: false }),
     ).rejects.toBeInstanceOf(StudyServiceError);
+  });
+});
+
+describe("calculateSm2Schedule", () => {
+  const TODAY = "2026-06-17";
+
+  it("schedules a brand-new card 1 day out on the first `good` review", () => {
+    const schedule = calculateSm2Schedule({ interval: 0, repetition: 0, easeFactor: 2.5 }, "good", TODAY);
+
+    expect(schedule.repetition).toBe(1);
+    expect(schedule.interval).toBe(1);
+    expect(schedule.dueAt).toBe("2026-06-18");
+    expect(schedule.lastReviewedAt).toBe(TODAY);
+  });
+
+  it("uses a 6-day interval on the second successful review", () => {
+    const schedule = calculateSm2Schedule({ interval: 1, repetition: 1, easeFactor: 2.5 }, "good", TODAY);
+
+    expect(schedule.repetition).toBe(2);
+    expect(schedule.interval).toBe(6);
+    expect(schedule.dueAt).toBe("2026-06-23");
+  });
+
+  it("multiplies the previous interval by the ease factor from the third review on", () => {
+    const schedule = calculateSm2Schedule({ interval: 6, repetition: 2, easeFactor: 2.5 }, "good", TODAY);
+
+    expect(schedule.repetition).toBe(3);
+    // EF' = 2.5 + (0.1 - (5-4)*(0.08 + (5-4)*0.02)) = 2.5; 6 * 2.5 = 15
+    expect(schedule.interval).toBe(15);
+  });
+
+  it("resets the repetition run and reschedules tomorrow on `again`", () => {
+    const schedule = calculateSm2Schedule({ interval: 15, repetition: 3, easeFactor: 2.5 }, "again", TODAY);
+
+    expect(schedule.repetition).toBe(0);
+    expect(schedule.interval).toBe(1);
+    expect(schedule.dueAt).toBe("2026-06-18");
+  });
+
+  it("lowers the ease factor on `hard` and clamps it at the 1.3 minimum", () => {
+    const schedule = calculateSm2Schedule({ interval: 6, repetition: 2, easeFactor: 1.3 }, "hard", TODAY);
+
+    // q=3 → EF delta = 0.1 - 2*(0.08 + 2*0.02) = -0.14 → clamped to 1.3.
+    expect(schedule.easeFactor).toBe(1.3);
+    expect(schedule.repetition).toBe(3);
+  });
+
+  it("raises the ease factor on `easy`", () => {
+    const schedule = calculateSm2Schedule({ interval: 1, repetition: 1, easeFactor: 2.5 }, "easy", TODAY);
+
+    // q=5 → EF delta = +0.1 → 2.6.
+    expect(schedule.easeFactor).toBe(2.6);
+  });
+});
+
+interface ReviewSupabaseOptions {
+  fetch?: QueryResult;
+  update?: QueryResult;
+  count?: QueryResult;
+}
+
+/**
+ * A chainable builder that also supports `.update(...)` for the review flow.
+ * Captures the payload passed to `update` so tests can assert which columns are
+ * written.
+ */
+function makeReviewBuilder(result: QueryResult, captured: { updatePayload?: Record<string, unknown> }) {
+  const builder: Record<string, unknown> = {};
+  for (const method of ["select", "eq", "lte"]) {
+    builder[method] = vi.fn(() => builder);
+  }
+  builder.update = vi.fn((payload: Record<string, unknown>) => {
+    captured.updatePayload = payload;
+    return builder;
+  });
+  builder.maybeSingle = vi.fn(() => Promise.resolve(result));
+  builder.then = (resolve: (value: QueryResult) => unknown) => resolve(result);
+  return builder;
+}
+
+/** Build a Supabase mock that serves the fetch, update, then count queries. */
+function makeReviewSupabase(opts: ReviewSupabaseOptions) {
+  const captured: { updatePayload?: Record<string, unknown> } = {};
+  const queue: QueryResult[] = [];
+  queue.push(opts.fetch ?? { data: makeRow(), error: null });
+  queue.push(opts.update ?? { data: makeRow(), error: null });
+  queue.push(opts.count ?? { count: 0, error: null });
+
+  const from = vi.fn(() => makeReviewBuilder(queue.shift() ?? { data: null, error: null }, captured));
+  const client = { from } as unknown as SupabaseClient;
+  return { client, captured };
+}
+
+describe("submitStudyReview", () => {
+  it("updates only scheduling columns and returns the updated card + nextDueCount", async () => {
+    const updatedRow = makeRow({
+      sm2_interval: 1,
+      sm2_repetition: 1,
+      sm2_ease_factor: 2.5,
+      due_at: "2026-06-18",
+      last_reviewed_at: "2026-06-17",
+    });
+    const { client, captured } = makeReviewSupabase({
+      fetch: { data: makeRow(), error: null },
+      update: { data: updatedRow, error: null },
+      count: { count: 4, error: null },
+    });
+
+    const result = await submitStudyReview(client, "user-1", { flashcardId: "card-1", grade: "good" });
+
+    expect(result.flashcard.id).toBe("card-1");
+    expect(result.flashcard.sm2.dueAt).toBe("2026-06-18");
+    expect(result.nextDueCount).toBe(4);
+    // Only scheduling columns are written — never text/deck/ownership/AI metadata.
+    expect(Object.keys(captured.updatePayload ?? {}).sort()).toEqual([
+      "due_at",
+      "last_reviewed_at",
+      "sm2_ease_factor",
+      "sm2_interval",
+      "sm2_repetition",
+    ]);
+  });
+
+  it("throws FLASHCARD_NOT_FOUND when the card is missing or foreign", async () => {
+    const { client } = makeReviewSupabase({ fetch: { data: null, error: null } });
+
+    await expect(submitStudyReview(client, "user-1", { flashcardId: "card-1", grade: "good" })).rejects.toMatchObject({
+      code: "FLASHCARD_NOT_FOUND",
+    });
+  });
+
+  it("throws REVIEW_SAVE_FAILED when the fetch query fails", async () => {
+    const { client } = makeReviewSupabase({ fetch: { data: null, error: { message: "boom" } } });
+
+    await expect(submitStudyReview(client, "user-1", { flashcardId: "card-1", grade: "good" })).rejects.toMatchObject({
+      code: "REVIEW_SAVE_FAILED",
+    });
+  });
+
+  it("throws REVIEW_SAVE_FAILED when the update fails", async () => {
+    const { client } = makeReviewSupabase({
+      fetch: { data: makeRow(), error: null },
+      update: { data: null, error: { message: "boom" } },
+    });
+
+    await expect(submitStudyReview(client, "user-1", { flashcardId: "card-1", grade: "good" })).rejects.toMatchObject({
+      code: "REVIEW_SAVE_FAILED",
+    });
+  });
+
+  it("throws REVIEW_SAVE_FAILED when the due-count query fails", async () => {
+    const { client } = makeReviewSupabase({
+      fetch: { data: makeRow(), error: null },
+      update: { data: makeRow(), error: null },
+      count: { count: null, error: { message: "boom" } },
+    });
+
+    await expect(submitStudyReview(client, "user-1", { flashcardId: "card-1", grade: "good" })).rejects.toMatchObject({
+      code: "REVIEW_SAVE_FAILED",
+    });
   });
 });

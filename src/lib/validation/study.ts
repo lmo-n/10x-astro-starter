@@ -45,3 +45,21 @@ export const studyDueQuerySchema = z.object({
 
 /** Parsed and validated query parameters for the due study queue. */
 export type StudyDueInput = z.infer<typeof studyDueQuerySchema>;
+
+/**
+ * Validation schema for the `POST /api/study/reviews` request body.
+ *
+ * Rules (mirror the submit-study-review implementation plan):
+ * - `flashcardId`: required, must be a valid UUID.
+ * - `grade`: required, one of `again`, `hard`, `good`, `easy`.
+ *
+ * A strict object is used so clients cannot smuggle SM-2 fields (`sm2Interval`,
+ * `dueAt`, etc.) into the payload — all scheduling state is computed server-side.
+ */
+export const submitReviewSchema = z.strictObject({
+  flashcardId: z.uuid("Flashcard id must be a valid UUID."),
+  grade: z.enum(["again", "hard", "good", "easy"]),
+});
+
+/** Parsed and validated body for a submitted study review. */
+export type SubmitReviewInput = z.infer<typeof submitReviewSchema>;
