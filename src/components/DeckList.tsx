@@ -20,32 +20,68 @@ interface Props {
   fetchError: string | null;
 }
 
-const SORT_OPTIONS = [
-  { value: "createdAt", label: "Created" },
-  { value: "updatedAt", label: "Updated" },
-  { value: "name", label: "Name" },
-] as const;
+type SortColumn = "name" | "updatedAt" | "createdAt";
+
+interface SortableThProps {
+  column: SortColumn;
+  label: string;
+  currentSort: string;
+  currentOrder: string;
+  className?: string;
+  buildUrl: (overrides: Record<string, string | undefined>) => string;
+}
+
+function SortableTh({ column, label, currentSort, currentOrder, className = "", buildUrl }: SortableThProps) {
+  const isActive = currentSort === column;
+  const nextOrder = isActive && currentOrder === "asc" ? "desc" : "asc";
+  const href = buildUrl({ sort: column, order: isActive ? nextOrder : "desc" });
+  return (
+    <th className={`py-3 text-left ${className}`}>
+      <a
+        href={href}
+        className={[
+          "inline-flex items-center gap-1 text-xs font-semibold tracking-wide uppercase transition-colors select-none",
+          isActive
+            ? "text-blue-600 dark:text-blue-300"
+            : "text-gray-400 hover:text-gray-700 dark:text-blue-100/40 dark:hover:text-blue-100/80",
+        ].join(" ")}
+      >
+        {label}
+        <svg
+          className={[
+            "h-3 w-3 transition-transform",
+            isActive && currentOrder === "desc" ? "rotate-180" : "",
+            !isActive ? "opacity-40" : "",
+          ].join(" ")}
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" />
+        </svg>
+      </a>
+    </th>
+  );
+}
 
 export default function DeckList({ initialDecks, initialLimits, query, searchParams, nextCursor, fetchError }: Props) {
   const [decks, setDecks] = useState(initialDecks);
   const [limits, setLimits] = useState(initialLimits);
 
-  /** Remove a deck from the list and refresh the limits bar (React way). */
   function handleDeleted(id: string) {
     setDecks((prev) => prev.filter((d) => d.id !== id));
     setLimits((prev) => (prev ? { ...prev, deckCount: Math.max(prev.deckCount - 1, 0), canCreateDeck: true } : prev));
   }
 
-  /** Prepend a newly created deck and refresh the limits bar. */
   function handleCreated(deck: DeckDto, newLimits: DeckLimitsDto) {
     setDecks((prev) => [deck, ...prev]);
     setLimits(newLimits);
   }
 
-  /** Build a URL relative to the current query, resetting pagination. */
   function buildUrl(overrides: Record<string, string | undefined>) {
     const p = new URLSearchParams(searchParams);
-    p.delete("cursor"); // reset pagination when changing filters/sort
+    p.delete("cursor");
     for (const [k, v] of Object.entries(overrides)) {
       if (v !== undefined && v !== "") p.set(k, v);
       else p.delete(k);
@@ -62,14 +98,12 @@ export default function DeckList({ initialDecks, initialLimits, query, searchPar
 
   return (
     <>
-      {/* Search + Sort toolbar */}
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-        {/* Search form */}
+      {/* Toolbar: search + new deck */}
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <form method="GET" className="flex w-full items-center gap-2 sm:flex-1">
           <input type="hidden" name="sort" value={query.sort} />
           <input type="hidden" name="order" value={query.order} />
           {query.limit !== 20 && <input type="hidden" name="limit" value={query.limit} />}
-
           <div className="relative flex-1">
             <input
               type="search"
@@ -100,67 +134,64 @@ export default function DeckList({ initialDecks, initialLimits, query, searchPar
             Search
           </button>
         </form>
-
-        {/* Divider */}
         <div className="hidden h-6 w-px bg-gray-200 sm:block dark:bg-white/10" />
-
-        {/* New deck */}
         <NewDeckButton canCreate={limits ? limits.canCreateDeck : true} onCreated={handleCreated} />
-
-        {/* Divider */}
-        <div className="hidden h-6 w-px bg-gray-200 sm:block dark:bg-white/10" />
-
-        {/* Sort buttons */}
-        <div className="flex flex-wrap items-center gap-1.5 self-start sm:self-auto">
-          <span className="text-xs tracking-wide text-gray-400 uppercase dark:text-blue-100/40">Sort:</span>
-          {SORT_OPTIONS.map(({ value, label }) => {
-            const isActive = query.sort === value;
-            const toggleOrder = isActive && query.order === "asc" ? "desc" : "asc";
-            const href = buildUrl({ sort: value, order: isActive ? toggleOrder : query.order });
-            return (
-              <a
-                key={value}
-                href={href}
-                className={[
-                  "flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs transition-colors",
-                  isActive
-                    ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400/50 dark:bg-blue-500/20 dark:text-blue-200"
-                    : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-white/20 dark:bg-white/5 dark:text-blue-100/60 dark:hover:bg-white/10",
-                ].join(" ")}
-              >
-                {label}
-                {isActive && (
-                  <svg
-                    className={`h-3 w-3 transition-transform${query.order === "desc" ? "rotate-180" : ""}`}
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                  </svg>
-                )}
-              </a>
-            );
-          })}
-        </div>
       </div>
 
       {/* Error state */}
       {fetchError && (
-        <div className="mb-6 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-400/30 dark:bg-red-500/10 dark:text-red-300">
+        <div className="mb-4 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-400/30 dark:bg-red-500/10 dark:text-red-300">
           {fetchError}
         </div>
       )}
 
-      {/* Deck grid */}
+      {/* Table or empty state */}
       {decks.length === 0 && !fetchError ? (
         <DeckEmptyState isSearchResult={Boolean(query.search)} searchTerm={query.search} onCreated={handleCreated} />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {decks.map((deck) => (
-            <DeckCard key={deck.id} deck={deck} onDeleted={handleDeleted} />
-          ))}
+        <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-white/10">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 bg-gray-50 dark:border-white/10 dark:bg-white/5">
+                <SortableTh
+                  column="name"
+                  label="Name"
+                  currentSort={query.sort ?? "createdAt"}
+                  currentOrder={query.order ?? "desc"}
+                  className="pr-3 pl-4"
+                  buildUrl={buildUrl}
+                />
+                <th className="hidden px-3 py-3 text-left text-xs font-semibold tracking-wide text-gray-400 uppercase sm:table-cell dark:text-blue-100/40">
+                  Cards
+                </th>
+                <th className="px-3 py-3 text-left text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-blue-100/40">
+                  Due
+                </th>
+                <SortableTh
+                  column="updatedAt"
+                  label="Updated"
+                  currentSort={query.sort ?? "createdAt"}
+                  currentOrder={query.order ?? "desc"}
+                  className="hidden px-3 sm:table-cell"
+                  buildUrl={buildUrl}
+                />
+                <SortableTh
+                  column="createdAt"
+                  label="Created"
+                  currentSort={query.sort ?? "createdAt"}
+                  currentOrder={query.order ?? "desc"}
+                  className="hidden px-3 md:table-cell"
+                  buildUrl={buildUrl}
+                />
+                <th className="py-3 pr-4 pl-3" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-white/6">
+              {decks.map((deck) => (
+                <DeckCard key={deck.id} deck={deck} onDeleted={handleDeleted} />
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
