@@ -10,6 +10,14 @@ import type { DeckDto, FlashcardDto } from "@/types";
 
 const { user } = Astro.locals;
 
+const userMetadata = (user?.user_metadata ?? {}) as Record<string, unknown>;
+const avatarUrl =
+  typeof userMetadata.avatar_url === "string"
+    ? userMetadata.avatar_url
+    : typeof userMetadata.picture === "string"
+      ? userMetadata.picture
+      : null;
+
 // Validate the `deckId` path parameter as a UUID.
 const params = deckIdParamSchema.safeParse(Astro.params);
 
@@ -43,7 +51,7 @@ if (notFound) {
 ---
 
 <AppLayout title={deck ? deck.name : "Deck"}>
-  <DashboardHeader email={user?.email} />
+  <DashboardHeader email={user?.email} avatarUrl={avatarUrl} />
 
   <!-- Back link under the header -->
   <a

@@ -1,5 +1,13 @@
 ---
 const { user } = Astro.locals;
+
+const userMetadata = (user?.user_metadata ?? {}) as Record<string, unknown>;
+const avatarUrl =
+  typeof userMetadata.avatar_url === "string"
+    ? userMetadata.avatar_url
+    : typeof userMetadata.picture === "string"
+      ? userMetadata.picture
+      : null;
 ---
 
 <div
@@ -8,7 +16,34 @@ const { user } = Astro.locals;
   {
     user ? (
       <>
-        <span class="text-blue-100/70">{user.email}</span>
+        <div class="flex items-center gap-2">
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt="User avatar"
+              class="h-6 w-6 rounded-full object-cover"
+              referrerpolicy="no-referrer"
+            />
+          ) : (
+            <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-blue-100/70">
+              <svg
+                class="h-3.5 w-3.5"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M15.75 7.5a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25a7.5 7.5 0 0115 0"
+                />
+              </svg>
+            </span>
+          )}
+          <span class="text-blue-100/70">{user.email}</span>
+        </div>
         <div class="flex items-center gap-3">
           <a href="/dashboard" class="text-purple-300 transition-colors hover:text-purple-100 hover:underline">
             Dashboard
