@@ -257,6 +257,25 @@ const GRADE_TO_QUALITY: Record<ReviewGrade, number> = {
 /** Lower bound for the SM-2 ease factor, per the original algorithm. */
 const MIN_EASE_FACTOR = 1.3;
 
+/**
+ * Interval (in days) granted on the first successful review of a fresh/relapsed
+ * card, keyed by grade. Textbook SM-2 uses a flat `1` day here regardless of
+ * grade, which makes `hard`/`good`/`easy` indistinguishable on new cards. These
+ * graduating intervals (Anki-style) give each grade a visibly different first
+ * due date.
+ */
+const FIRST_INTERVAL: Record<Exclude<ReviewGrade, "again">, number> = {
+  hard: 2,
+  good: 4,
+  easy: 7,
+};
+
+/** Growth multiplier applied to the previous interval when the grade is `hard`. */
+const HARD_INTERVAL_MULTIPLIER = 1.2;
+
+/** Extra multiplier applied on top of the ease factor when the grade is `easy`. */
+const EASY_BONUS = 1.3;
+
 /** Mutable SM-2 scheduling state used as input to {@link calculateSm2Schedule}. */
 export interface Sm2State {
   interval: number;
@@ -290,16 +309,20 @@ function addDays(date: string, days: number): string {
 /**
  * Compute the next SM-2 scheduling state for a reviewed flashcard.
  *
- * Implements the classic SM-2 algorithm:
+ * This is SM-2 with grade-aware intervals so every grade produces a visibly
+ * different due date (textbook SM-2 collapses `hard`/`good`/`easy` to the same
+ * interval on the first two reviews):
  *  - The grade is mapped to a quality value `q` (see {@link GRADE_TO_QUALITY}).
  *  - The ease factor is always updated with
  *    `EF' = EF + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))` and clamped to a
  *    minimum of {@link MIN_EASE_FACTOR}.
- *  - On a failed recall (`q < 3`) the repetition run resets to `0` and the card
- *    is rescheduled for the next day (`interval = 1`).
- *  - On a successful recall (`q >= 3`) the repetition increments and the interval
- *    grows: `1` day for the first success, `6` days for the second, then
- *    `round(previousInterval * EF')` afterwards.
+ *  - On a failed recall (`again`, `q < 3`) the repetition run resets to `0` and
+ *    the card is rescheduled for the next day (`interval = 1`).
+ *  - On the first successful review the interval comes from {@link FIRST_INTERVAL}
+ *    (`hard = 2`, `good = 4`, `easy = 7` days).
+ *  - On later successful reviews the previous interval grows by grade:
+ *    `hard → interval * 1.2`, `good → interval * EF'`,
+ *    `easy → interval * EF' * 1.3`, always increasing by at least one day.
  *
  * All scheduling is computed server-side; the client only supplies the grade.
  *
@@ -318,19 +341,25 @@ export function calculateSm2Schedule(current: Sm2State, grade: ReviewGrade, toda
   let repetition: number;
   let interval: number;
 
-  if (quality < 3) {
+  if (grade === "again") {
     // Failed recall: reset the repetition run and review again tomorrow.
     repetition = 0;
     interval = 1;
+  } else if (current.repetition === 0) {
+    // First successful review (new or relapsed card): grade-specific seed.
+    repetition = 1;
+    interval = FIRST_INTERVAL[grade];
   } else {
+    // Subsequent successful reviews grow the previous interval by grade, always
+    // advancing by at least one day so `hard` never stalls.
     repetition = current.repetition + 1;
-    if (repetition === 1) {
-      interval = 1;
-    } else if (repetition === 2) {
-      interval = 6;
-    } else {
-      interval = Math.round(current.interval * easeFactor);
-    }
+    const grown =
+      grade === "hard"
+        ? current.interval * HARD_INTERVAL_MULTIPLIER
+        : grade === "good"
+          ? current.interval * easeFactor
+          : current.interval * easeFactor * EASY_BONUS;
+    interval = Math.max(current.interval + 1, Math.round(grown));
   }
 
   // Guard against a degenerate zero/negative interval from rounding.

@@ -231,29 +231,51 @@ describe("getDueStudyQueue", () => {
 describe("calculateSm2Schedule", () => {
   const TODAY = "2026-06-17";
 
-  it("schedules a brand-new card 1 day out on the first `good` review", () => {
+  it("gives a distinct first interval for each grade on a brand-new card", () => {
+    const base = { interval: 0, repetition: 0, easeFactor: 2.5 };
+
+    expect(calculateSm2Schedule(base, "again", TODAY).interval).toBe(1);
+    expect(calculateSm2Schedule(base, "hard", TODAY).interval).toBe(2);
+    expect(calculateSm2Schedule(base, "good", TODAY).interval).toBe(4);
+    expect(calculateSm2Schedule(base, "easy", TODAY).interval).toBe(7);
+  });
+
+  it("schedules a brand-new card 4 days out on the first `good` review", () => {
     const schedule = calculateSm2Schedule({ interval: 0, repetition: 0, easeFactor: 2.5 }, "good", TODAY);
 
     expect(schedule.repetition).toBe(1);
-    expect(schedule.interval).toBe(1);
-    expect(schedule.dueAt).toBe("2026-06-18");
+    expect(schedule.interval).toBe(4);
+    expect(schedule.dueAt).toBe("2026-06-21");
     expect(schedule.lastReviewedAt).toBe(TODAY);
   });
 
-  it("uses a 6-day interval on the second successful review", () => {
-    const schedule = calculateSm2Schedule({ interval: 1, repetition: 1, easeFactor: 2.5 }, "good", TODAY);
+  it("grows the interval by the ease factor on a later `good` review", () => {
+    const schedule = calculateSm2Schedule({ interval: 6, repetition: 1, easeFactor: 2.5 }, "good", TODAY);
 
     expect(schedule.repetition).toBe(2);
-    expect(schedule.interval).toBe(6);
-    expect(schedule.dueAt).toBe("2026-06-23");
+    // EF' = 2.5 (q=4 delta 0); 6 * 2.5 = 15.
+    expect(schedule.interval).toBe(15);
   });
 
-  it("multiplies the previous interval by the ease factor from the third review on", () => {
-    const schedule = calculateSm2Schedule({ interval: 6, repetition: 2, easeFactor: 2.5 }, "good", TODAY);
+  it("grows more slowly on `hard` than on `good`, but always by at least one day", () => {
+    const current = { interval: 6, repetition: 2, easeFactor: 2.5 };
+    const hard = calculateSm2Schedule(current, "hard", TODAY);
+    const good = calculateSm2Schedule(current, "good", TODAY);
 
-    expect(schedule.repetition).toBe(3);
-    // EF' = 2.5 + (0.1 - (5-4)*(0.08 + (5-4)*0.02)) = 2.5; 6 * 2.5 = 15
-    expect(schedule.interval).toBe(15);
+    // hard → round(6 * 1.2) = 7; good → round(6 * EF').
+    expect(hard.interval).toBe(7);
+    expect(good.interval).toBeGreaterThan(hard.interval);
+  });
+
+  it("applies the easy bonus so `easy` outpaces `good`", () => {
+    const current = { interval: 10, repetition: 2, easeFactor: 2.5 };
+    const good = calculateSm2Schedule(current, "good", TODAY);
+    const easy = calculateSm2Schedule(current, "easy", TODAY);
+
+    // good → round(10 * 2.5) = 25; easy → round(10 * 2.6 * 1.3) = 34.
+    expect(good.interval).toBe(25);
+    expect(easy.interval).toBe(34);
+    expect(easy.interval).toBeGreaterThan(good.interval);
   });
 
   it("resets the repetition run and reschedules tomorrow on `again`", () => {

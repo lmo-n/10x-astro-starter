@@ -8,6 +8,45 @@ interface Props {
   onUpdated: (updated: FlashcardDto) => void;
 }
 
+/**
+ * Return a human-readable due label and a Tailwind colour class based on how
+ * far away (or overdue) the card's `dueAt` date is, relative to today.
+ */
+function dueBadge(dueAt: string): { label: string; className: string } {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(`${dueAt}T00:00:00`);
+  const diffDays = Math.round((due.getTime() - today.getTime()) / 86_400_000);
+
+  if (diffDays < 0) {
+    const n = Math.abs(diffDays);
+    return {
+      label: `Overdue by ${n} day${n === 1 ? "" : "s"}`,
+      className:
+        "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300",
+    };
+  }
+  if (diffDays === 0) {
+    return {
+      label: "Due today",
+      className:
+        "bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300",
+    };
+  }
+  if (diffDays <= 3) {
+    return {
+      label: `Due in ${diffDays} day${diffDays === 1 ? "" : "s"}`,
+      className:
+        "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300",
+    };
+  }
+  return {
+    label: `Due ${due.toLocaleDateString()}`,
+    className:
+      "bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-blue-100/50",
+  };
+}
+
 /** Validate both text fields and return per-field error strings. */
 function validateEditFields(front: string, back: string): { front: string | null; back: string | null } {
   const frontResult = frontTextSchema.safeParse(front);
@@ -186,7 +225,9 @@ export default function Flashcard({ card, onDeleted, onUpdated }: Props) {
               AI
             </span>
           )}
-          <span>Due {new Date(card.sm2.dueAt).toLocaleDateString()}</span>
+          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${dueBadge(card.sm2.dueAt).className}`}>
+              {dueBadge(card.sm2.dueAt).label}
+            </span>
         </div>
 
         {editing ? (
