@@ -2,43 +2,80 @@
 import AppLayout from "@/layouts/AppLayout.astro";
 import DashboardHeader from "@/components/DashboardHeader.astro";
 import DeckList from "@/components/DeckList.astro";
+import { createClient } from "@/lib/supabase";
+import { getDueStudyQueue } from "@/lib/services/study.service";
 
 const { user } = Astro.locals;
+
+const supabase = createClient(Astro.request.headers, Astro.cookies);
+let dueCount = 0;
+if (supabase && user) {
+  try {
+    const result = await getDueStudyQueue(supabase, user.id, { limit: 1, includeFuturePreview: false });
+    dueCount = result.summary.dueCount;
+  } catch {
+    // Non-critical — fall back to showing the link
+  }
+}
 ---
 
 <AppLayout title="Dashboard">
   <DashboardHeader email={user?.email} />
-  <a
-    href="/study"
-    class="mb-6 flex items-center justify-between gap-4 rounded-2xl border border-blue-200 bg-linear-to-r from-blue-50 to-purple-50 px-5 py-4 transition-colors hover:border-blue-300 hover:from-blue-100 hover:to-purple-100 dark:border-blue-400/20 dark:from-blue-500/10 dark:to-purple-500/10 dark:hover:border-blue-400/40 dark:hover:from-blue-500/20 dark:hover:to-purple-500/20"
-  >
-    <div class="flex items-center gap-3">
-      <span
-        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-300"
+  {
+    dueCount > 0 ? (
+      <a
+        href="/study"
+        class="mb-6 flex items-center justify-between gap-4 rounded-2xl border border-blue-200 bg-linear-to-r from-blue-50 to-purple-50 px-5 py-4 transition-colors hover:border-blue-300 hover:from-blue-100 hover:to-purple-100 dark:border-blue-400/20 dark:from-blue-500/10 dark:to-purple-500/10 dark:hover:border-blue-400/40 dark:hover:from-blue-500/20 dark:hover:to-purple-500/20"
       >
-        <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-          ></path>
+        <div class="flex items-center gap-3">
+          <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-300">
+            <svg
+              class="h-5 w-5"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+              />
+            </svg>
+          </span>
+          <div>
+            <p class="text-sm font-semibold text-gray-900 dark:text-white">
+              {dueCount} card{dueCount === 1 ? "" : "s"} due for review
+            </p>
+            <p class="text-xs text-gray-500 dark:text-blue-100/60">Keep your streak going — review them now.</p>
+          </div>
+        </div>
+        <svg
+          class="h-5 w-5 shrink-0 text-gray-400 dark:text-blue-100/40"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
         </svg>
-      </span>
-      <div>
-        <p class="text-sm font-semibold text-gray-900 dark:text-white">Study due cards</p>
-        <p class="text-xs text-gray-500 dark:text-blue-100/60">Review the flashcards that are due today.</p>
+      </a>
+    ) : (
+      <div class="mb-6 flex items-center gap-3 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 dark:border-green-400/20 dark:bg-green-500/10">
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-300">
+          <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+        </span>
+        <div>
+          <p class="text-sm font-semibold text-gray-900 dark:text-white">All caught up!</p>
+          <p class="text-xs text-gray-500 dark:text-blue-100/60">
+            No cards due right now. Check back later or add more cards.
+          </p>
+        </div>
       </div>
-    </div>
-    <svg
-      class="h-5 w-5 shrink-0 text-gray-400 dark:text-blue-100/40"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-    </svg>
-  </a>
+    )
+  }
   <DeckList />
 </AppLayout>

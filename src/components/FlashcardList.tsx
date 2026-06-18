@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FlashcardDto } from "@/types";
 import AddFlashcardForm from "@/components/AddFlashcardForm";
+import { formatDate } from "@/lib/utils";
 import Flashcard from "@/components/Flashcard";
 
 interface Props {
@@ -82,7 +83,7 @@ export default function FlashcardList({ deckId, initialFlashcards, onCleared, de
             <span className="font-semibold text-gray-900 dark:text-white">{flashcards.length}</span> cards
           </span>
           {dueCount > 0 && <span className="text-amber-600 dark:text-amber-300">{dueCount} due</span>}
-          <span>Updated {new Date(updatedAt).toLocaleDateString()}</span>
+          <span>Updated {formatDate(updatedAt)}</span>
         </div>
       </div>
 

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import type { DeckDto } from "@/types";
+import { formatDate } from "@/lib/utils";
 
 interface Props {
   deck: DeckDto;
@@ -269,9 +270,7 @@ export default function DeckCard({ deck, onDeleted }: Props) {
         )}
       </div>
 
-      <p className="mt-3 text-xs text-gray-400 dark:text-blue-100/40">
-        Updated {new Date(deck.updatedAt).toLocaleDateString()}
-      </p>
+      <p className="mt-3 text-xs text-gray-400 dark:text-blue-100/40">Updated {formatDate(deck.updatedAt)}</p>
 
       {/* Open deck (view flashcards) */}
       <a

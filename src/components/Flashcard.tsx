@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FlashcardDto } from "@/types";
 import { frontTextSchema, backTextSchema } from "@/lib/validation/flashcards";
+import { formatDate } from "@/lib/utils";
 
 interface Props {
   card: FlashcardDto;
@@ -23,27 +24,34 @@ function dueBadge(dueAt: string): { label: string; className: string } {
     return {
       label: `Overdue by ${n} day${n === 1 ? "" : "s"}`,
       className:
-        "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300",
+        "bg-red-100 text-red-800 border border-red-300 dark:bg-red-500/25 dark:text-red-300 dark:border-red-500/50",
     };
   }
   if (diffDays === 0) {
     return {
       label: "Due today",
       className:
-        "bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300",
+        "bg-orange-100 text-orange-800 border border-orange-300 dark:bg-orange-500/25 dark:text-orange-300 dark:border-orange-500/50",
     };
   }
-  if (diffDays <= 3) {
+  if (diffDays <= 2) {
     return {
       label: `Due in ${diffDays} day${diffDays === 1 ? "" : "s"}`,
       className:
-        "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300",
+        "bg-yellow-100 text-yellow-800 border border-yellow-300 dark:bg-yellow-500/20 dark:text-yellow-300 dark:border-yellow-500/40",
+    };
+  }
+  if (diffDays <= 6) {
+    return {
+      label: `Due in ${diffDays} days`,
+      className:
+        "bg-teal-100 text-teal-800 border border-teal-300 dark:bg-teal-500/20 dark:text-teal-300 dark:border-teal-500/40",
     };
   }
   return {
-    label: `Due ${due.toLocaleDateString()}`,
+    label: `Due ${formatDate(due)}`,
     className:
-      "bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-blue-100/50",
+      "bg-blue-100 text-blue-800 border border-blue-300 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/40",
   };
 }
 
@@ -226,8 +234,8 @@ export default function Flashcard({ card, onDeleted, onUpdated }: Props) {
             </span>
           )}
           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${dueBadge(card.sm2.dueAt).className}`}>
-              {dueBadge(card.sm2.dueAt).label}
-            </span>
+            {dueBadge(card.sm2.dueAt).label}
+          </span>
         </div>
 
         {editing ? (

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import type {
   ReviewGrade,
   StudyQueueItemDto,
@@ -21,28 +21,32 @@ interface Props {
 }
 
 /** Visual config for each grade button. */
-const GRADE_CONFIG: Record<ReviewGrade, { label: string; description: string; className: string }> = {
+const GRADE_CONFIG: Record<ReviewGrade, { label: string; description: string; className: string; key: string }> = {
   again: {
     label: "Again",
     description: "Forgot",
+    key: "1",
     className:
       "bg-red-50 text-red-700 border-red-200 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-300 dark:border-red-400/30 dark:hover:bg-red-500/20",
   },
   hard: {
     label: "Hard",
     description: "Struggled",
+    key: "2",
     className:
       "bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100 dark:bg-orange-500/10 dark:text-orange-300 dark:border-orange-400/30 dark:hover:bg-orange-500/20",
   },
   good: {
     label: "Good",
     description: "Remembered",
+    key: "3",
     className:
       "bg-green-50 text-green-700 border-green-200 hover:bg-green-100 dark:bg-green-500/10 dark:text-green-300 dark:border-green-400/30 dark:hover:bg-green-500/20",
   },
   easy: {
     label: "Easy",
     description: "Perfect",
+    key: "4",
     className:
       "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-400/30 dark:hover:bg-blue-500/20",
   },
@@ -166,6 +170,35 @@ export default function StudySession({ initialItems, summary, initialNextCursor,
     setRemainingDue(summary.dueCount);
   }
 
+  // Keep a ref to the latest submitGrade so the event listener is registered
+  // once per [revealed/submitting/loadingMore] change without capturing a stale closure.
+  const submitGradeRef = useRef(submitGrade);
+  useEffect(() => {
+    submitGradeRef.current = submitGrade;
+  });
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.repeat) return;
+      if (!revealed) {
+        if (e.key === " " || e.key === "Enter") {
+          e.preventDefault();
+          setRevealed(true);
+        }
+        return;
+      }
+      if (submitting || loadingMore) return;
+      const gradeIndex = parseInt(e.key, 10) - 1;
+      if (gradeIndex >= 0 && gradeIndex < GRADES.length) {
+        void submitGradeRef.current(GRADES[gradeIndex]);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [revealed, submitting, loadingMore]);
+
   // --- Error state ---------------------------------------------------------
   if (fetchError) {
     return (
@@ -284,14 +317,15 @@ export default function StudySession({ initialItems, summary, initialNextCursor,
         {!revealed ? (
           <button
             onClick={reveal}
-            className="inline-flex cursor-pointer items-center rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 dark:bg-blue-500/40 dark:text-blue-100 dark:hover:bg-blue-500/60"
+            className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 dark:bg-blue-500/40 dark:text-blue-100 dark:hover:bg-blue-500/60"
           >
             Show answer
+            <kbd className="rounded border border-white/30 px-1.5 py-0.5 text-xs font-normal opacity-70">Space</kbd>
           </button>
         ) : (
-          <div className="flex w-full flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <div className="flex w-full flex-col items-center gap-3">
             <p className="text-xs text-gray-400 dark:text-blue-100/40">How well did you remember?</p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap justify-center gap-2">
               {GRADES.map((grade) => {
                 const cfg = GRADE_CONFIG[grade];
                 return (
@@ -299,10 +333,15 @@ export default function StudySession({ initialItems, summary, initialNextCursor,
                     key={grade}
                     onClick={() => void submitGrade(grade)}
                     disabled={submitting || loadingMore}
-                    className={`inline-flex cursor-pointer flex-col items-center rounded-lg border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${cfg.className}`}
+                    className={`inline-flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${cfg.className}`}
                   >
-                    <span className="font-semibold">{cfg.label}</span>
-                    <span className="opacity-70">{cfg.description}</span>
+                    <kbd className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-current text-xs opacity-50">
+                      {cfg.key}
+                    </kbd>
+                    <span className="flex flex-col items-start leading-tight">
+                      <span className="font-semibold">{cfg.label}</span>
+                      <span className="text-xs opacity-70">{cfg.description}</span>
+                    </span>
                   </button>
                 );
               })}

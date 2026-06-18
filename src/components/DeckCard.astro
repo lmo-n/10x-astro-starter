@@ -1,5 +1,6 @@
 ---
 import type { DeckDto } from "@/types";
+import { formatDate } from "@/lib/utils";
 
 interface Props {
   deck: DeckDto;
@@ -56,5 +57,5 @@ const { deck } = Astro.props;
       )
     }
   </div>
-  <p class="mt-3 text-xs text-blue-100/40">Updated {new Date(deck.updatedAt).toLocaleDateString()}</p>
+  <p class="mt-3 text-xs text-blue-100/40">Updated {formatDate(deck.updatedAt)}</p>
 </div>
