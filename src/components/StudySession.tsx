@@ -1,5 +1,11 @@
 import { useState } from "react";
-import type { StudyQueueItemDto, StudyDueSummaryDto, GetStudyDueResponseDto } from "@/types";
+import type {
+  ReviewGrade,
+  StudyQueueItemDto,
+  StudyDueSummaryDto,
+  GetStudyDueResponseDto,
+  SubmitReviewResponseDto,
+} from "@/types";
 
 interface Props {
   /** Server-rendered first page of due cards. */
@@ -14,25 +20,59 @@ interface Props {
   fetchError: string | null;
 }
 
+/** Visual config for each grade button. */
+const GRADE_CONFIG: Record<ReviewGrade, { label: string; description: string; className: string }> = {
+  again: {
+    label: "Again",
+    description: "Forgot",
+    className:
+      "bg-red-50 text-red-700 border-red-200 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-300 dark:border-red-400/30 dark:hover:bg-red-500/20",
+  },
+  hard: {
+    label: "Hard",
+    description: "Struggled",
+    className:
+      "bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100 dark:bg-orange-500/10 dark:text-orange-300 dark:border-orange-400/30 dark:hover:bg-orange-500/20",
+  },
+  good: {
+    label: "Good",
+    description: "Remembered",
+    className:
+      "bg-green-50 text-green-700 border-green-200 hover:bg-green-100 dark:bg-green-500/10 dark:text-green-300 dark:border-green-400/30 dark:hover:bg-green-500/20",
+  },
+  easy: {
+    label: "Easy",
+    description: "Perfect",
+    className:
+      "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-400/30 dark:hover:bg-blue-500/20",
+  },
+};
+
+const GRADES: ReviewGrade[] = ["again", "hard", "good", "easy"];
+
 /**
  * Interactive study session for the due-card queue. Cards are shown one at a
- * time; the user flips a card to reveal the answer, then advances to the next.
- * Further pages are loaded lazily from `GET /api/study/due` using the cursor so
- * large queues never block the initial render.
+ * time; the user flips a card to reveal the answer, then grades themselves with
+ * `again / hard / good / easy` which submits the review to `POST /api/study/reviews`
+ * and advances to the next card. Further pages are loaded lazily from
+ * `GET /api/study/due` using the cursor so large queues never block the initial render.
  */
 export default function StudySession({ initialItems, summary, initialNextCursor, deckId, fetchError }: Props) {
   const [items, setItems] = useState(initialItems);
   const [nextCursor, setNextCursor] = useState(initialNextCursor);
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [finished, setFinished] = useState(false);
+  // nextDueCount updated after each review submission.
+  const [remainingDue, setRemainingDue] = useState(summary.dueCount);
+  // Track how many cards were reviewed this session.
+  const [reviewedCount, setReviewedCount] = useState(0);
 
   const current = items[index];
-  // Progress is measured against the full queue size from the summary, not just
-  // the cards loaded so far.
-  const progressPct = summary.dueCount > 0 ? Math.min((index / summary.dueCount) * 100, 100) : 0;
+  const progressPct = summary.dueCount > 0 ? Math.min((reviewedCount / summary.dueCount) * 100, 100) : 0;
 
   /** Fetch the next page of due cards using the current deck filter + cursor. */
   async function loadMore(): Promise<StudyQueueItemDto[]> {
@@ -50,45 +90,70 @@ export default function StudySession({ initialItems, summary, initialNextCursor,
     return data.data;
   }
 
+  /** Submit a grade for the current card, then advance to the next. */
+  async function submitGrade(grade: ReviewGrade) {
+    if (submitting) return;
+
+    setSubmitting(true);
+    setLoadError(null);
+
+    try {
+      const res = await fetch("/api/study/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ flashcardId: current.id, grade }),
+      });
+
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+        throw new Error(body.error?.message ?? "Failed to submit review.");
+      }
+
+      const data = (await res.json()) as SubmitReviewResponseDto;
+      setRemainingDue(data.nextDueCount);
+      setReviewedCount((n) => n + 1);
+
+      // Advance to the next card.
+      const nextIndex = index + 1;
+
+      if (nextIndex < items.length) {
+        setIndex(nextIndex);
+        setRevealed(false);
+        return;
+      }
+
+      // No more loaded cards, but another page exists → fetch it.
+      if (nextCursor) {
+        setLoadingMore(true);
+        try {
+          const more = await loadMore();
+          if (more.length > 0) {
+            setItems((prev) => [...prev, ...more]);
+            setIndex(nextIndex);
+            setRevealed(false);
+          } else {
+            setFinished(true);
+          }
+        } catch (e) {
+          setLoadError(e instanceof Error ? e.message : "Failed to load more cards.");
+        } finally {
+          setLoadingMore(false);
+        }
+        return;
+      }
+
+      // Nothing left.
+      setFinished(true);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Failed to submit review.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   /** Reveal the answer for the current card. */
   function reveal() {
     setRevealed(true);
-  }
-
-  /** Advance to the next card, lazily loading another page when needed. */
-  async function next() {
-    const nextIndex = index + 1;
-
-    // Still have a loaded card ahead → just advance.
-    if (nextIndex < items.length) {
-      setIndex(nextIndex);
-      setRevealed(false);
-      return;
-    }
-
-    // No more loaded cards, but another page exists → fetch it.
-    if (nextCursor) {
-      setLoadingMore(true);
-      setLoadError(null);
-      try {
-        const more = await loadMore();
-        if (more.length > 0) {
-          setItems((prev) => [...prev, ...more]);
-          setIndex(nextIndex);
-          setRevealed(false);
-        } else {
-          setFinished(true);
-        }
-      } catch (e) {
-        setLoadError(e instanceof Error ? e.message : "Failed to load more cards.");
-      } finally {
-        setLoadingMore(false);
-      }
-      return;
-    }
-
-    // Nothing left to study.
-    setFinished(true);
   }
 
   /** Restart the session from the first loaded card. */
@@ -97,6 +162,8 @@ export default function StudySession({ initialItems, summary, initialNextCursor,
     setRevealed(false);
     setFinished(false);
     setLoadError(null);
+    setReviewedCount(0);
+    setRemainingDue(summary.dueCount);
   }
 
   // --- Error state ---------------------------------------------------------
@@ -154,7 +221,8 @@ export default function StudySession({ initialItems, summary, initialNextCursor,
         </div>
         <h3 className="mb-1 text-base font-semibold text-gray-900 dark:text-white">Session complete</h3>
         <p className="mx-auto max-w-sm text-sm text-gray-500 dark:text-blue-100/60">
-          You reviewed {items.length} {items.length === 1 ? "card" : "cards"} in this session. Nice work!
+          You reviewed {reviewedCount} {reviewedCount === 1 ? "card" : "cards"} in this session.
+          {remainingDue > 0 && ` ${remainingDue} card${remainingDue === 1 ? "" : "s"} still due.`}
         </p>
         <div className="mt-6 flex items-center justify-center gap-3">
           <button
@@ -181,8 +249,8 @@ export default function StudySession({ initialItems, summary, initialNextCursor,
       <div className="mb-6">
         <div className="mb-2 flex items-center justify-between text-sm text-gray-500 dark:text-blue-100/60">
           <span>
-            Card <span className="font-semibold text-gray-900 dark:text-white">{index + 1}</span> of {summary.dueCount}{" "}
-            due
+            Card <span className="font-semibold text-gray-900 dark:text-white">{reviewedCount + 1}</span> of{" "}
+            {summary.dueCount} due
           </span>
           {summary.upcomingCount > 0 && <span>{summary.upcomingCount} upcoming</span>}
         </div>
@@ -221,13 +289,30 @@ export default function StudySession({ initialItems, summary, initialNextCursor,
             Show answer
           </button>
         ) : (
-          <button
-            onClick={() => void next()}
-            disabled={loadingMore}
-            className="inline-flex cursor-pointer items-center rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-500/40 dark:text-blue-100 dark:hover:bg-blue-500/60"
-          >
-            {loadingMore ? "Loading…" : "Next card"}
-          </button>
+          <div className="flex w-full flex-col items-center gap-3 sm:flex-row sm:justify-center">
+            <p className="text-xs text-gray-400 dark:text-blue-100/40">How well did you remember?</p>
+            <div className="flex gap-2">
+              {GRADES.map((grade) => {
+                const cfg = GRADE_CONFIG[grade];
+                return (
+                  <button
+                    key={grade}
+                    onClick={() => void submitGrade(grade)}
+                    disabled={submitting || loadingMore}
+                    className={`inline-flex cursor-pointer flex-col items-center rounded-lg border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${cfg.className}`}
+                  >
+                    <span className="font-semibold">{cfg.label}</span>
+                    <span className="opacity-70">{cfg.description}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {(submitting || loadingMore) && (
+              <span className="text-xs text-gray-400 dark:text-blue-100/40">
+                {loadingMore ? "Loading…" : "Saving…"}
+              </span>
+            )}
+          </div>
         )}
       </div>
     </div>
