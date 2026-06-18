@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { DeckDto, DeckLimitsDto } from "@/types";
 import { useCreateDeck } from "@/components/hooks/useCreateDeck";
+import { playSuccessSound, prepareSuccessSound } from "@/lib/sounds";
 
 interface Props {
   /** Whether the user is below their deck quota. */
@@ -18,15 +19,21 @@ export default function NewDeckButton({ canCreate, onCreated }: Props) {
   const [name, setName] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const { creating, error, setError, create } = useCreateDeck((deck, limits) => {
+    playSuccessSound();
     onCreated(deck, limits);
     setName("");
     setOpen(false);
   });
 
-  function close() {
+  const close = useCallback(() => {
     setOpen(false);
     setName("");
     setError(null);
+  }, [setError]);
+
+  function createDeck() {
+    prepareSuccessSound();
+    void create(name);
   }
 
   // Focus input when modal opens
@@ -43,8 +50,10 @@ export default function NewDeckButton({ canCreate, onCreated }: Props) {
       if (e.key === "Escape") close();
     }
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open]);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [close, open]);
 
   return (
     <>
@@ -96,7 +105,7 @@ export default function NewDeckButton({ canCreate, onCreated }: Props) {
                 if (error) setError(null);
               }}
               onKeyDown={(e) => {
-                if (e.key === "Enter") void create(name);
+                if (e.key === "Enter") createDeck();
               }}
               maxLength={100}
               disabled={creating}
@@ -117,7 +126,7 @@ export default function NewDeckButton({ canCreate, onCreated }: Props) {
               </button>
               <button
                 type="button"
-                onClick={() => void create(name)}
+                onClick={createDeck}
                 disabled={creating || name.trim().length === 0}
                 className="cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-blue-500/30 dark:text-blue-100 dark:hover:bg-blue-500/50"
               >

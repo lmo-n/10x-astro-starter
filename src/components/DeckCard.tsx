@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import type { DeckDto } from "@/types";
 import { formatDate } from "@/lib/utils";
-import { playRemoveSound, prepareRemoveSound } from "@/lib/sounds";
+import { playRemoveSound, playSuccessSound, prepareRemoveSound, prepareSuccessSound } from "@/lib/sounds";
 
 interface Props {
   deck: DeckDto;
@@ -73,6 +73,7 @@ export default function DeckCard({ deck, onDeleted }: Props) {
   }
 
   async function saveEdit() {
+    prepareSuccessSound();
     const trimmed = draft.trim();
     if (!trimmed) {
       setError("Deck name must not be empty.");
@@ -106,6 +107,7 @@ export default function DeckCard({ deck, onDeleted }: Props) {
       }
 
       setName(trimmed);
+      playSuccessSound();
       setEditing(false);
     } catch {
       setError("Network error. Please try again.");

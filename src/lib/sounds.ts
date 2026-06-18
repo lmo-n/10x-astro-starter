@@ -14,6 +14,39 @@ export function prepareRemoveSound() {
   void context.resume().catch(() => undefined);
 }
 
+export function prepareSuccessSound() {
+  prepareRemoveSound();
+}
+
+export function playSuccessSound() {
+  const context = getAudioContext();
+  if (!context) return;
+
+  if (context.state === "suspended") {
+    void context.resume().catch(() => undefined);
+  }
+
+  const startAt = context.currentTime;
+  const notes = [523.25, 659.25, 783.99];
+
+  notes.forEach((frequency, index) => {
+    const noteStart = startAt + index * 0.075;
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(frequency, noteStart);
+    gain.gain.setValueAtTime(0.0001, noteStart);
+    gain.gain.exponentialRampToValueAtTime(0.08, noteStart + 0.018);
+    gain.gain.exponentialRampToValueAtTime(0.0001, noteStart + 0.18);
+
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start(noteStart);
+    oscillator.stop(noteStart + 0.2);
+  });
+}
+
 export function playRemoveSound() {
   const context = getAudioContext();
   if (!context) return;

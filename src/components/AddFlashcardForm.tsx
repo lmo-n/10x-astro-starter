@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FlashcardDto } from "@/types";
 import { useCreateFlashcard, FRONT_TEXT_MAX_LENGTH, BACK_TEXT_MAX_LENGTH } from "@/components/hooks/useCreateFlashcard";
+import { playSuccessSound, prepareSuccessSound } from "@/lib/sounds";
 
 interface Props {
   /** The deck that will receive the new flashcard. */
@@ -24,17 +25,23 @@ export default function AddFlashcardForm({ deckId, open, onClose, onCreated }: P
   const [back, setBack] = useState("");
   const frontRef = useRef<HTMLTextAreaElement>(null);
   const { creating, error, setError, create } = useCreateFlashcard(deckId, (flashcard) => {
+    playSuccessSound();
     onCreated(flashcard);
     setFront("");
     setBack("");
     onClose();
   });
 
-  function close() {
+  const close = useCallback(() => {
     setFront("");
     setBack("");
     setError(null);
     onClose();
+  }, [onClose, setError]);
+
+  function createFlashcard() {
+    prepareSuccessSound();
+    void create(front, back);
   }
 
   // Focus front textarea when modal opens
@@ -51,8 +58,10 @@ export default function AddFlashcardForm({ deckId, open, onClose, onCreated }: P
       if (e.key === "Escape") close();
     }
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open]);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [close, open]);
 
   if (!open) return null;
 
@@ -72,7 +81,7 @@ export default function AddFlashcardForm({ deckId, open, onClose, onCreated }: P
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            void create(front, back);
+            createFlashcard();
           }}
         >
           <div className="grid gap-4 sm:grid-cols-2">

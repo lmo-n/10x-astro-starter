@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import type { FlashcardDto } from "@/types";
 import { frontTextSchema, backTextSchema } from "@/lib/validation/flashcards";
 import { formatDate } from "@/lib/utils";
-import { playRemoveSound, prepareRemoveSound } from "@/lib/sounds";
+import { playRemoveSound, playSuccessSound, prepareRemoveSound, prepareSuccessSound } from "@/lib/sounds";
 
 interface Props {
   card: FlashcardDto;
@@ -132,6 +132,7 @@ export default function Flashcard({ card, onDeleted, onUpdated }: Props) {
   }
 
   async function saveEdit() {
+    prepareSuccessSound();
     // Validate on the client before hitting the network.
     const errors = validateEditFields(editFront, editBack);
     setFrontError(errors.front);
@@ -162,6 +163,7 @@ export default function Flashcard({ card, onDeleted, onUpdated }: Props) {
       }
 
       const data = (await res.json()) as { flashcard: FlashcardDto };
+      playSuccessSound();
       onUpdated(data.flashcard);
       setEditing(false);
     } catch {
