@@ -60,33 +60,8 @@ export default function DeckList({ initialDecks, initialLimits, query, searchPar
     return `?${p.toString()}`;
   })();
 
-  const usedPct = limits ? Math.min((limits.deckCount / limits.deckLimit) * 100, 100) : 0;
-
   return (
     <>
-      {/* Deck limits bar */}
-      {limits && (
-        <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 backdrop-blur dark:border-white/10 dark:bg-white/5">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600 dark:text-blue-100/70">
-              <span className="font-semibold text-gray-900 dark:text-white">{limits.deckCount}</span> /{" "}
-              <span>{limits.deckLimit}</span> decks used
-            </span>
-            {!limits.canCreateDeck && (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
-                Deck limit reached
-              </span>
-            )}
-          </div>
-          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
-            <div
-              className="h-full rounded-full bg-linear-to-r from-blue-400 to-purple-400 transition-all"
-              style={{ width: `${usedPct}%` }}
-            />
-          </div>
-        </div>
-      )}
-
       {/* Search + Sort toolbar */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
         {/* Search form */}

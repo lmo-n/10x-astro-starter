@@ -275,11 +275,11 @@ export default function DeckCard({ deck, onDeleted }: Props) {
       {/* Open deck (view flashcards) */}
       <a
         href={`/decks/${deck.id}`}
-        className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200"
+        className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 dark:border-white/10 dark:bg-white/5 dark:text-blue-100/80 dark:hover:border-blue-400/40 dark:hover:bg-blue-500/10 dark:hover:text-blue-200"
       >
         Open deck
         <svg
-          className="h-4 w-4"
+          className="h-3.5 w-3.5"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
