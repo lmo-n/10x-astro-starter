@@ -9,6 +9,13 @@ import { getProfile } from "@/lib/services/profile.service";
 import type { GetProfileResponseDto } from "@/types";
 
 const { user } = Astro.locals;
+const userMetadata: Record<string, unknown> = user?.user_metadata ?? {};
+const avatarUrl =
+  typeof userMetadata.avatar_url === "string"
+    ? userMetadata.avatar_url
+    : typeof userMetadata.picture === "string"
+      ? userMetadata.picture
+      : null;
 
 const supabase = createClient(Astro.request.headers, Astro.cookies);
 let dueCount = 0;
@@ -28,7 +35,7 @@ if (supabase && user) {
 ---
 
 <AppLayout title="Dashboard">
-  <DashboardHeader email={user?.email} />
+  <DashboardHeader email={user?.email} avatarUrl={avatarUrl} />
   {profileData && <ProfileStats data={profileData} />}
   <div class="mb-6 flex items-center justify-between gap-4">
     <h2 class="text-sm font-semibold text-gray-900 dark:text-white">My Decks</h2>
