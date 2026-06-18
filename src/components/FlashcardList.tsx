@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type { FlashcardDto } from "@/types";
 import AddFlashcardForm from "@/components/AddFlashcardForm";
 import { formatDate } from "@/lib/utils";
@@ -75,7 +75,9 @@ export default function FlashcardList({ deckId, initialFlashcards, onCleared, de
 
   const today = new Date().toISOString().slice(0, 10);
   const dueCount = flashcards.filter((c) => c.sm2.dueAt <= today).length;
-  const [confirmingClear, setConfirmingClear] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [clearModalOpen, setClearModalOpen] = useState(false);
+  const [confirmName, setConfirmName] = useState("");
   const [clearing, setClearing] = useState(false);
   const [clearError, setClearError] = useState<string | null>(null);
 
@@ -145,13 +147,29 @@ export default function FlashcardList({ deckId, initialFlashcards, onCleared, de
         return;
       }
       handleCleared();
-      setConfirmingClear(false);
+      setClearModalOpen(false);
+      setConfirmName("");
     } catch {
       setClearError("Network error. Please try again.");
     } finally {
       setClearing(false);
     }
   }
+
+  function closeClearModal() {
+    setClearModalOpen(false);
+    setConfirmName("");
+    setClearError(null);
+  }
+
+  useEffect(() => {
+    if (!clearModalOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") closeClearModal();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [clearModalOpen]);
 
   return (
     <>
@@ -169,44 +187,90 @@ export default function FlashcardList({ deckId, initialFlashcards, onCleared, de
         </div>
       </div>
 
-      <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Flashcards</h2>
-
-      <AddFlashcardForm deckId={deckId} onCreated={handleCreated} />
-
-      {flashcards.length > 0 && (
-        <div className="mb-4 flex items-center justify-end gap-3">
-          {clearError && <p className="text-sm text-red-500 dark:text-red-400">{clearError}</p>}
-          {confirmingClear ? (
-            <>
-              <span className="text-sm text-gray-600 dark:text-blue-100/70">Remove all {flashcards.length} cards?</span>
-              <button
-                onClick={() => {
-                  setConfirmingClear(false);
-                }}
-                disabled={clearing}
-                className="cursor-pointer rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50 dark:border-white/20 dark:text-blue-100/60 dark:hover:bg-white/10"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={clearAllFlashcards}
-                disabled={clearing}
-                className="cursor-pointer rounded-md bg-red-600 px-3 py-1.5 text-sm text-white transition-colors hover:bg-red-700 disabled:opacity-50 dark:bg-red-500/40 dark:text-red-100 dark:hover:bg-red-500/60"
-              >
-                {clearing ? "Removing…" : "Yes, remove all"}
-              </button>
-            </>
-          ) : (
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Flashcards</h2>
+        <div className="flex items-center gap-2">
+          {flashcards.length > 0 && (
             <button
-              onClick={() => {
-                setClearError(null);
-                setConfirmingClear(true);
-              }}
+              onClick={() => setClearModalOpen(true)}
               className="cursor-pointer rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm text-red-600 transition-colors hover:bg-red-50 dark:border-red-400/40 dark:bg-transparent dark:text-red-400 dark:hover:bg-red-500/10"
             >
               Remove all flashcards
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => setAddOpen(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm whitespace-nowrap text-white transition-colors hover:bg-blue-700 dark:bg-blue-500/30 dark:text-blue-100 dark:hover:bg-blue-500/50"
+          >
+            <svg
+              className="h-4 w-4"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add flashcard
+          </button>
+        </div>
+      </div>
+
+      <AddFlashcardForm deckId={deckId} open={addOpen} onClose={() => setAddOpen(false)} onCreated={handleCreated} />
+
+      {clearModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeClearModal();
+          }}
+        >
+          <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-white/10 dark:bg-gray-900">
+            <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-white">Remove all flashcards?</h2>
+            <p className="mb-4 text-sm text-gray-500 dark:text-blue-100/60">
+              This will permanently delete all{" "}
+              <span className="font-semibold text-gray-900 dark:text-white">{flashcards.length}</span> flashcards from
+              this deck. Type the deck name to confirm:
+            </p>
+            <p className="mb-2 text-xs font-medium text-gray-700 dark:text-blue-100/70">
+              <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono dark:bg-white/10">{deckName}</span>
+            </p>
+            <input
+              type="text"
+              value={confirmName}
+              onChange={(e) => {
+                setConfirmName(e.target.value);
+                if (clearError) setClearError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") closeClearModal();
+                if (e.key === "Enter" && confirmName === deckName) void clearAllFlashcards();
+              }}
+              disabled={clearing}
+              placeholder="Deck name…"
+              className="mb-4 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-red-500/50 focus:outline-none disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-blue-100/40"
+            />
+            {clearError && <p className="mb-3 text-xs text-red-500 dark:text-red-400">{clearError}</p>}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeClearModal}
+                disabled={clearing}
+                className="cursor-pointer rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-white/20 dark:bg-white/5 dark:text-blue-100/70 dark:hover:bg-white/10"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void clearAllFlashcards()}
+                disabled={clearing || confirmName !== deckName}
+                className="cursor-pointer rounded-lg bg-red-600 px-4 py-2 text-sm text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-500/40 dark:text-red-100 dark:hover:bg-red-500/60"
+              >
+                {clearing ? "Removing…" : "Remove all"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

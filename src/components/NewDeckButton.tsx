@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { DeckDto, DeckLimitsDto } from "@/types";
 import { useCreateDeck } from "@/components/hooks/useCreateDeck";
 
@@ -10,12 +10,13 @@ interface Props {
 }
 
 /**
- * Toolbar control for creating a deck when the list is non-empty. Renders a
- * "New deck" button that expands into an inline name input.
+ * Toolbar control for creating a deck. Renders a "New deck" button that opens
+ * a modal dialog with a name input.
  */
 export default function NewDeckButton({ canCreate, onCreated }: Props) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
   const { creating, error, setError, create } = useCreateDeck((deck, limits) => {
     onCreated(deck, limits);
     setName("");
@@ -28,8 +29,25 @@ export default function NewDeckButton({ canCreate, onCreated }: Props) {
     setError(null);
   }
 
-  if (!open) {
-    return (
+  // Focus input when modal opens
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => inputRef.current?.focus(), 0);
+    }
+  }, [open]);
+
+  // Close on Escape key
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") close();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  return (
+    <>
       <button
         type="button"
         onClick={() => {
@@ -51,46 +69,64 @@ export default function NewDeckButton({ canCreate, onCreated }: Props) {
         </svg>
         New deck
       </button>
-    );
-  }
 
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2">
-        <input
-          type="text"
-          value={name}
-          autoFocus
-          onChange={(e) => {
-            setName(e.target.value);
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) close();
           }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") void create(name);
-            if (e.key === "Escape") close();
-          }}
-          maxLength={100}
-          disabled={creating}
-          placeholder="Deck name…"
-          className="w-44 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500/50 focus:outline-none disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-blue-100/40 dark:focus:ring-blue-400/50"
-        />
-        <button
-          type="button"
-          onClick={() => void create(name)}
-          disabled={creating}
-          className="cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm whitespace-nowrap text-white transition-colors hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-500/30 dark:text-blue-100 dark:hover:bg-blue-500/50"
         >
-          {creating ? "Creating…" : "Create"}
-        </button>
-        <button
-          type="button"
-          onClick={close}
-          disabled={creating}
-          className="cursor-pointer rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm whitespace-nowrap text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50 dark:border-white/20 dark:bg-white/5 dark:text-blue-100/70 dark:hover:bg-white/10"
-        >
-          Cancel
-        </button>
-      </div>
-      {error && <p className="text-xs text-red-400">{error}</p>}
-    </div>
+          <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-white/10 dark:bg-gray-900">
+            <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">New deck</h2>
+
+            <label
+              htmlFor="new-deck-name"
+              className="mb-1 block text-xs font-medium tracking-wide text-gray-500 uppercase dark:text-blue-100/50"
+            >
+              Deck name
+            </label>
+            <input
+              id="new-deck-name"
+              ref={inputRef}
+              type="text"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (error) setError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void create(name);
+              }}
+              maxLength={100}
+              disabled={creating}
+              placeholder="Deck name…"
+              className="mb-4 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500/50 focus:outline-none disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-blue-100/40 dark:focus:ring-blue-400/50"
+            />
+
+            {error && <p className="mb-3 text-xs text-red-500 dark:text-red-400">{error}</p>}
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={close}
+                disabled={creating}
+                className="cursor-pointer rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-white/20 dark:bg-white/5 dark:text-blue-100/70 dark:hover:bg-white/10"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void create(name)}
+                disabled={creating || name.trim().length === 0}
+                className="cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-blue-500/30 dark:text-blue-100 dark:hover:bg-blue-500/50"
+              >
+                {creating ? "Creating…" : "Create"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

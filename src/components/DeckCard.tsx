@@ -13,10 +13,12 @@ export default function DeckCard({ deck, onDeleted }: Props) {
   const [draft, setDraft] = useState(deck.name);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [confirmName, setConfirmName] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const deleteInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (editing) {
@@ -24,21 +26,39 @@ export default function DeckCard({ deck, onDeleted }: Props) {
     }
   }, [editing]);
 
-  // Dismiss delete confirmation on Escape.
+  // Dismiss delete modal on Escape.
   useEffect(() => {
-    if (!confirmingDelete) return;
+    if (!deleteModalOpen) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.preventDefault();
-        setConfirmingDelete(false);
-        setDeleteError(null);
+        closeDeleteModal();
       }
     }
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
     };
-  }, [confirmingDelete]);
+  }, [deleteModalOpen]);
+
+  // Focus modal input when it opens.
+  useEffect(() => {
+    if (deleteModalOpen) {
+      setTimeout(() => deleteInputRef.current?.focus(), 0);
+    }
+  }, [deleteModalOpen]);
+
+  function openDeleteModal() {
+    setConfirmName("");
+    setDeleteError(null);
+    setDeleteModalOpen(true);
+  }
+
+  function closeDeleteModal() {
+    setDeleteModalOpen(false);
+    setConfirmName("");
+    setDeleteError(null);
+  }
 
   function startEdit() {
     setDraft(name);
@@ -118,6 +138,7 @@ export default function DeckCard({ deck, onDeleted }: Props) {
       // Notify the parent list so it can remove this deck and update the
       // limits bar (React owns the list state).
       onDeleted(deck.id);
+      closeDeleteModal();
     } catch {
       setDeleteError("Network error. Please try again.");
     } finally {
@@ -220,10 +241,7 @@ export default function DeckCard({ deck, onDeleted }: Props) {
               </svg>
             </button>
             <button
-              onClick={() => {
-                setConfirmingDelete(true);
-                setDeleteError(null);
-              }}
+              onClick={openDeleteModal}
               title="Delete deck"
               className="cursor-pointer rounded-md p-1.5 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600 dark:text-blue-100/30 dark:hover:bg-red-500/20 dark:hover:text-red-300"
             >
@@ -252,32 +270,61 @@ export default function DeckCard({ deck, onDeleted }: Props) {
         </td>
       </tr>
 
-      {/* Delete confirmation — spans all 6 columns */}
-      {confirmingDelete && (
+      {/* Delete confirmation modal */}
+      {deleteModalOpen && (
         <tr>
-          <td colSpan={6} className="px-4 py-3">
-            <div className="flex flex-wrap items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-500/30 dark:bg-red-500/10">
-              <p className="flex-1 text-sm text-red-700 dark:text-red-200">
-                Delete <span className="font-semibold">{name}</span> and all its flashcards? This cannot be undone.
-              </p>
-              {deleteError && <p className="w-full text-xs text-red-400">{deleteError}</p>}
-              <button
-                onClick={() => void deleteDeck()}
-                disabled={deleting}
-                className="rounded-md bg-red-600 px-3 py-1.5 text-xs text-white transition-colors hover:bg-red-700 disabled:opacity-50 dark:bg-red-500/40 dark:text-red-100 dark:hover:bg-red-500/60"
-              >
-                {deleting ? "Deleting…" : "Delete"}
-              </button>
-              <button
-                onClick={() => {
-                  setConfirmingDelete(false);
-                  setDeleteError(null);
-                }}
-                disabled={deleting}
-                className="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50 dark:border-white/20 dark:text-blue-100/60 dark:hover:bg-white/10"
-              >
-                Cancel
-              </button>
+          <td colSpan={6} className="p-0">
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) closeDeleteModal();
+              }}
+            >
+              <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-white/10 dark:bg-gray-900">
+                <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-white">Delete deck?</h2>
+                <p className="mb-4 text-sm text-gray-500 dark:text-blue-100/60">
+                  This will permanently delete{" "}
+                  <span className="font-semibold text-gray-900 dark:text-white">{name}</span> and all its flashcards.
+                  This cannot be undone. Type the deck name to confirm:
+                </p>
+                <p className="mb-2 text-xs font-medium text-gray-700 dark:text-blue-100/70">
+                  <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono dark:bg-white/10">{name}</span>
+                </p>
+                <input
+                  ref={deleteInputRef}
+                  type="text"
+                  value={confirmName}
+                  onChange={(e) => {
+                    setConfirmName(e.target.value);
+                    if (deleteError) setDeleteError(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && confirmName === name) void deleteDeck();
+                  }}
+                  disabled={deleting}
+                  placeholder="Deck name…"
+                  className="mb-4 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-red-500/50 focus:outline-none disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-blue-100/40"
+                />
+                {deleteError && <p className="mb-3 text-xs text-red-500 dark:text-red-400">{deleteError}</p>}
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={closeDeleteModal}
+                    disabled={deleting}
+                    className="cursor-pointer rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-white/20 dark:bg-white/5 dark:text-blue-100/70 dark:hover:bg-white/10"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void deleteDeck()}
+                    disabled={deleting || confirmName !== name}
+                    className="cursor-pointer rounded-lg bg-red-600 px-4 py-2 text-sm text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-500/40 dark:text-red-100 dark:hover:bg-red-500/60"
+                  >
+                    {deleting ? "Deleting…" : "Delete deck"}
+                  </button>
+                </div>
+              </div>
             </div>
           </td>
         </tr>
