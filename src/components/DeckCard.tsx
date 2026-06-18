@@ -24,6 +24,22 @@ export default function DeckCard({ deck, onDeleted }: Props) {
     }
   }, [editing]);
 
+  // Dismiss delete confirmation on Escape.
+  useEffect(() => {
+    if (!confirmingDelete) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setConfirmingDelete(false);
+        setDeleteError(null);
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [confirmingDelete]);
+
   function startEdit() {
     setDraft(name);
     setError(null);

@@ -1,8 +1,54 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { FlashcardDto } from "@/types";
 import AddFlashcardForm from "@/components/AddFlashcardForm";
 import { formatDate } from "@/lib/utils";
 import Flashcard from "@/components/Flashcard";
+
+type SortCol = "front" | "back" | "due" | "created" | "ai";
+type SortDir = "asc" | "desc";
+
+interface SortableThProps {
+  col: SortCol;
+  label: string;
+  active: SortCol;
+  dir: SortDir;
+  onSort: (col: SortCol) => void;
+  className?: string;
+}
+
+function SortableTh({ col, label, active, dir, onSort, className = "" }: SortableThProps) {
+  const isActive = active === col;
+  return (
+    <th className={`py-3 text-left ${className}`}>
+      <button
+        onClick={() => {
+          onSort(col);
+        }}
+        className={[
+          "inline-flex items-center gap-1 text-xs font-semibold tracking-wide uppercase transition-colors select-none",
+          isActive
+            ? "text-blue-600 dark:text-blue-300"
+            : "text-gray-400 hover:text-gray-700 dark:text-blue-100/40 dark:hover:text-blue-100/80",
+        ].join(" ")}
+      >
+        {label}
+        <svg
+          className={[
+            "h-3 w-3 transition-transform",
+            isActive && dir === "desc" ? "rotate-180" : "",
+            !isActive ? "opacity-40" : "",
+          ].join(" ")}
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" />
+        </svg>
+      </button>
+    </th>
+  );
+}
 
 interface Props {
   /** The deck whose flashcards are listed. */
@@ -24,12 +70,48 @@ interface Props {
  */
 export default function FlashcardList({ deckId, initialFlashcards, onCleared, deckName, updatedAt }: Props) {
   const [flashcards, setFlashcards] = useState(initialFlashcards);
+  const [sortCol, setSortCol] = useState<SortCol>("created");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const today = new Date().toISOString().slice(0, 10);
   const dueCount = flashcards.filter((c) => c.sm2.dueAt <= today).length;
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [clearError, setClearError] = useState<string | null>(null);
+
+  /** Toggle sort column / direction. */
+  function handleSort(col: SortCol) {
+    if (col === sortCol) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortCol(col);
+      setSortDir("asc");
+    }
+  }
+
+  const sortedFlashcards = useMemo(() => {
+    return [...flashcards].sort((a, b) => {
+      let cmp = 0;
+      switch (sortCol) {
+        case "front":
+          cmp = a.frontText.localeCompare(b.frontText);
+          break;
+        case "back":
+          cmp = a.backText.localeCompare(b.backText);
+          break;
+        case "due":
+          cmp = a.sm2.dueAt.localeCompare(b.sm2.dueAt);
+          break;
+        case "ai":
+          cmp = Number(a.createdByAi) - Number(b.createdByAi);
+          break;
+        case "created":
+        default:
+          cmp = a.createdAt.localeCompare(b.createdAt);
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [flashcards, sortCol, sortDir]);
 
   /** Prepend a newly created flashcard to the list. */
   function handleCreated(flashcard: FlashcardDto) {
@@ -152,11 +234,53 @@ export default function FlashcardList({ deckId, initialFlashcards, onCleared, de
           </p>
         </div>
       ) : (
-        <ul className="flex flex-col gap-3" data-deck-id={deckId}>
-          {flashcards.map((card) => (
-            <Flashcard key={card.id} card={card} onDeleted={handleDeleted} onUpdated={handleUpdated} />
-          ))}
-        </ul>
+        <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-white/10">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 bg-gray-50 dark:border-white/10 dark:bg-white/5">
+                <SortableTh
+                  col="front"
+                  label="Front"
+                  active={sortCol}
+                  dir={sortDir}
+                  onSort={handleSort}
+                  className="w-[30%] pr-3 pl-4"
+                />
+                <SortableTh
+                  col="back"
+                  label="Back"
+                  active={sortCol}
+                  dir={sortDir}
+                  onSort={handleSort}
+                  className="w-[35%] px-3"
+                />
+                <SortableTh col="due" label="Due" active={sortCol} dir={sortDir} onSort={handleSort} className="px-3" />
+                <SortableTh
+                  col="created"
+                  label="Created"
+                  active={sortCol}
+                  dir={sortDir}
+                  onSort={handleSort}
+                  className="hidden px-3 md:table-cell"
+                />
+                <SortableTh
+                  col="ai"
+                  label="AI"
+                  active={sortCol}
+                  dir={sortDir}
+                  onSort={handleSort}
+                  className="hidden px-3 sm:table-cell"
+                />
+                <th className="py-3 pr-4 pl-3" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-white/6">
+              {sortedFlashcards.map((card) => (
+                <Flashcard key={card.id} card={card} onDeleted={handleDeleted} onUpdated={handleUpdated} />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </>
   );

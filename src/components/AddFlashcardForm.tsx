@@ -58,6 +58,14 @@ export default function AddFlashcardForm({ deckId, onCreated }: Props) {
               setFront(e.target.value);
               if (error) setError(null);
             }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setFront("");
+                setBack("");
+                setError(null);
+                e.currentTarget.blur();
+              }
+            }}
             rows={2}
             maxLength={FRONT_TEXT_MAX_LENGTH}
             disabled={creating}
@@ -81,6 +89,14 @@ export default function AddFlashcardForm({ deckId, onCreated }: Props) {
             onChange={(e) => {
               setBack(e.target.value);
               if (error) setError(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setFront("");
+                setBack("");
+                setError(null);
+                e.currentTarget.blur();
+              }
             }}
             rows={2}
             maxLength={BACK_TEXT_MAX_LENGTH}
