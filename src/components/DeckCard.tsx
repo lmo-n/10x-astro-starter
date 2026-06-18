@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import type { DeckDto } from "@/types";
 import { formatDate } from "@/lib/utils";
+import { playRemoveSound, prepareRemoveSound } from "@/lib/sounds";
 
 interface Props {
   deck: DeckDto;
@@ -119,6 +120,7 @@ export default function DeckCard({ deck, onDeleted }: Props) {
   }
 
   async function deleteDeck() {
+    prepareRemoveSound();
     setDeleting(true);
     setDeleteError(null);
 
@@ -137,6 +139,7 @@ export default function DeckCard({ deck, onDeleted }: Props) {
 
       // Notify the parent list so it can remove this deck and update the
       // limits bar (React owns the list state).
+      playRemoveSound();
       onDeleted(deck.id);
       closeDeleteModal();
     } catch {

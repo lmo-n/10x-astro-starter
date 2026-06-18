@@ -3,6 +3,7 @@ import type { FlashcardDto } from "@/types";
 import AddFlashcardForm from "@/components/AddFlashcardForm";
 import { formatDate } from "@/lib/utils";
 import Flashcard from "@/components/Flashcard";
+import { playRemoveSound, prepareRemoveSound } from "@/lib/sounds";
 
 type SortCol = "front" | "back" | "due" | "created" | "ai";
 type SortDir = "asc" | "desc";
@@ -137,6 +138,7 @@ export default function FlashcardList({ deckId, initialFlashcards, onCleared, de
   }
 
   async function clearAllFlashcards() {
+    prepareRemoveSound();
     setClearing(true);
     setClearError(null);
     try {
@@ -146,6 +148,7 @@ export default function FlashcardList({ deckId, initialFlashcards, onCleared, de
         setClearError(body.error?.message ?? "Failed to clear flashcards.");
         return;
       }
+      playRemoveSound();
       handleCleared();
       setClearModalOpen(false);
       setConfirmName("");
@@ -168,7 +171,9 @@ export default function FlashcardList({ deckId, initialFlashcards, onCleared, de
       if (e.key === "Escape") closeClearModal();
     }
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+    };
   }, [clearModalOpen]);
 
   return (
@@ -192,7 +197,9 @@ export default function FlashcardList({ deckId, initialFlashcards, onCleared, de
         <div className="flex items-center gap-2">
           {flashcards.length > 0 && (
             <button
-              onClick={() => setClearModalOpen(true)}
+              onClick={() => {
+                setClearModalOpen(true);
+              }}
               className="cursor-pointer rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm text-red-600 transition-colors hover:bg-red-50 dark:border-red-400/40 dark:bg-transparent dark:text-red-400 dark:hover:bg-red-500/10"
             >
               Remove all flashcards
@@ -200,7 +207,9 @@ export default function FlashcardList({ deckId, initialFlashcards, onCleared, de
           )}
           <button
             type="button"
-            onClick={() => setAddOpen(true)}
+            onClick={() => {
+              setAddOpen(true);
+            }}
             className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm whitespace-nowrap text-white transition-colors hover:bg-blue-700 dark:bg-blue-500/30 dark:text-blue-100 dark:hover:bg-blue-500/50"
           >
             <svg
@@ -217,7 +226,14 @@ export default function FlashcardList({ deckId, initialFlashcards, onCleared, de
         </div>
       </div>
 
-      <AddFlashcardForm deckId={deckId} open={addOpen} onClose={() => setAddOpen(false)} onCreated={handleCreated} />
+      <AddFlashcardForm
+        deckId={deckId}
+        open={addOpen}
+        onClose={() => {
+          setAddOpen(false);
+        }}
+        onCreated={handleCreated}
+      />
 
       {clearModalOpen && (
         <div
@@ -263,7 +279,9 @@ export default function FlashcardList({ deckId, initialFlashcards, onCleared, de
               </button>
               <button
                 type="button"
-                onClick={() => void clearAllFlashcards()}
+                onClick={() => {
+                  void clearAllFlashcards();
+                }}
                 disabled={clearing || confirmName !== deckName}
                 className="cursor-pointer rounded-lg bg-red-600 px-4 py-2 text-sm text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-500/40 dark:text-red-100 dark:hover:bg-red-500/60"
               >

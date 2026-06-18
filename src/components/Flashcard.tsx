@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import type { FlashcardDto } from "@/types";
 import { frontTextSchema, backTextSchema } from "@/lib/validation/flashcards";
 import { formatDate } from "@/lib/utils";
+import { playRemoveSound, prepareRemoveSound } from "@/lib/sounds";
 
 interface Props {
   card: FlashcardDto;
@@ -171,6 +172,7 @@ export default function Flashcard({ card, onDeleted, onUpdated }: Props) {
   }
 
   async function deleteFlashcard() {
+    prepareRemoveSound();
     setDeleting(true);
     setDeleteError(null);
 
@@ -185,6 +187,7 @@ export default function Flashcard({ card, onDeleted, onUpdated }: Props) {
         return;
       }
 
+      playRemoveSound();
       onDeleted(card.id);
     } catch {
       setDeleteError("Network error. Please try again.");
