@@ -2,25 +2,34 @@
 import AppLayout from "@/layouts/AppLayout.astro";
 import DashboardHeader from "@/components/DashboardHeader.astro";
 import DeckList from "@/components/DeckList.astro";
+import ProfileStats from "@/components/ProfileStats.astro";
 import { createClient } from "@/lib/supabase";
 import { getDueStudyQueue } from "@/lib/services/study.service";
+import { getProfile } from "@/lib/services/profile.service";
+import type { GetProfileResponseDto } from "@/types";
 
 const { user } = Astro.locals;
 
 const supabase = createClient(Astro.request.headers, Astro.cookies);
 let dueCount = 0;
+let profileData: GetProfileResponseDto | null = null;
 if (supabase && user) {
-  try {
-    const result = await getDueStudyQueue(supabase, user.id, { limit: 1, includeFuturePreview: false });
-    dueCount = result.summary.dueCount;
-  } catch {
-    // Non-critical — fall back to showing the link
+  const [studyResult, profileResult] = await Promise.allSettled([
+    getDueStudyQueue(supabase, user.id, { limit: 1, includeFuturePreview: false }),
+    getProfile(supabase, user.id),
+  ]);
+  if (studyResult.status === "fulfilled") {
+    dueCount = studyResult.value.summary.dueCount;
+  }
+  if (profileResult.status === "fulfilled") {
+    profileData = profileResult.value;
   }
 }
 ---
 
 <AppLayout title="Dashboard">
   <DashboardHeader email={user?.email} />
+  {profileData && <ProfileStats data={profileData} />}
   {
     dueCount > 0 ? (
       <a
