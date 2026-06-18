@@ -1,4 +1,17 @@
 let audioContext: AudioContext | null = null;
+const SOUND_MUTED_STORAGE_KEY = "sound-muted";
+
+export function isSoundMuted() {
+  if (typeof window === "undefined") return false;
+
+  return localStorage.getItem(SOUND_MUTED_STORAGE_KEY) === "true";
+}
+
+export function setSoundMuted(muted: boolean) {
+  if (typeof window === "undefined") return;
+
+  localStorage.setItem(SOUND_MUTED_STORAGE_KEY, String(muted));
+}
 
 function getAudioContext() {
   if (typeof window === "undefined") return null;
@@ -8,6 +21,8 @@ function getAudioContext() {
 }
 
 export function prepareRemoveSound() {
+  if (isSoundMuted()) return;
+
   const context = getAudioContext();
   if (context?.state !== "suspended") return;
 
@@ -19,6 +34,8 @@ export function prepareSuccessSound() {
 }
 
 export function playSuccessSound() {
+  if (isSoundMuted()) return;
+
   const context = getAudioContext();
   if (!context) return;
 
@@ -48,6 +65,8 @@ export function playSuccessSound() {
 }
 
 export function playRemoveSound() {
+  if (isSoundMuted()) return;
+
   const context = getAudioContext();
   if (!context) return;
 
