@@ -564,10 +564,10 @@
 
 ```json
 {
-  "sourceText": "string between 5000 and 10000 characters",
+  "sourceText": "string between 20 and 10000 characters",
   "instructions": "optional short instruction",
   "language": "pl | en | auto",
-  "model": "gpt-4o-mini | claude-3-haiku"
+  "model": "gpt-4o-mini"
 }
 ```
 
@@ -586,7 +586,7 @@
 ```
 
 - **Client-side validation before provider call:**
-  - `sourceText` must be 5,000 to 10,000 characters after trimming.
+  - `sourceText` must be 20 to 10,000 characters after trimming.
   - `instructions` is optional and should be capped at 500 characters.
   - UI must show a loading animation during the provider call.
   - UI must show a friendly error, a retry action, and a manual-entry CTA for timeout, content filter, or provider errors.
@@ -935,7 +935,7 @@
 ### AI generation validation and logic
 
 - Source text generation input is validated client-side before direct provider calls:
-  - Minimum 5,000 characters.
+  - Minimum 20 characters.
   - Maximum 10,000 characters.
   - Polish and English are supported.
 - Optional instructions are appended to the model prompt but are not persisted.

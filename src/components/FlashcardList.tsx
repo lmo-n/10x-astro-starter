@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import type { FlashcardDto } from "@/types";
 import AddFlashcardForm from "@/components/AddFlashcardForm";
+import AiGenerateFlashcardsModal from "@/components/AiGenerateFlashcardsModal";
 import { formatDate } from "@/lib/utils";
 import Flashcard from "@/components/Flashcard";
 import { playRemoveSound, prepareRemoveSound } from "@/lib/sounds";
@@ -77,6 +78,7 @@ export default function FlashcardList({ deckId, initialFlashcards, onCleared, de
   const today = new Date().toISOString().slice(0, 10);
   const dueCount = flashcards.filter((c) => c.sm2.dueAt <= today).length;
   const [addOpen, setAddOpen] = useState(false);
+  const [aiGenerateOpen, setAiGenerateOpen] = useState(false);
   const [clearModalOpen, setClearModalOpen] = useState(false);
   const [confirmName, setConfirmName] = useState("");
   const [clearing, setClearing] = useState(false);
@@ -119,6 +121,11 @@ export default function FlashcardList({ deckId, initialFlashcards, onCleared, de
   /** Prepend a newly created flashcard to the list. */
   function handleCreated(flashcard: FlashcardDto) {
     setFlashcards((prev) => [flashcard, ...prev]);
+  }
+
+  /** Prepend multiple AI-generated flashcards to the list. */
+  function handleBulkCreated(newCards: FlashcardDto[]) {
+    setFlashcards((prev) => [...newCards, ...prev]);
   }
 
   /** Remove a deleted flashcard from the list. */
@@ -207,9 +214,7 @@ export default function FlashcardList({ deckId, initialFlashcards, onCleared, de
           )}
           <button
             type="button"
-            onClick={() => {
-              setAddOpen(true);
-            }}
+            onClick={() => setAddOpen(true)}
             className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm whitespace-nowrap text-white transition-colors hover:bg-blue-700 dark:bg-blue-500/30 dark:text-blue-100 dark:hover:bg-blue-500/50"
           >
             <svg
@@ -221,18 +226,39 @@ export default function FlashcardList({ deckId, initialFlashcards, onCleared, de
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            Add flashcard
+            Add manually
+          </button>
+          <button
+            type="button"
+            onClick={() => setAiGenerateOpen(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-purple-600 px-4 py-2 text-sm whitespace-nowrap text-white transition-colors hover:bg-purple-700 dark:bg-purple-500/30 dark:text-purple-100 dark:hover:bg-purple-500/50"
+          >
+            <svg
+              className="h-4 w-4"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+              />
+            </svg>
+            Generate with AI
           </button>
         </div>
       </div>
 
-      <AddFlashcardForm
+      <AddFlashcardForm deckId={deckId} open={addOpen} onClose={() => setAddOpen(false)} onCreated={handleCreated} />
+
+      <AiGenerateFlashcardsModal
         deckId={deckId}
-        open={addOpen}
-        onClose={() => {
-          setAddOpen(false);
-        }}
-        onCreated={handleCreated}
+        open={aiGenerateOpen}
+        onClose={() => setAiGenerateOpen(false)}
+        onCreated={handleBulkCreated}
       />
 
       {clearModalOpen && (

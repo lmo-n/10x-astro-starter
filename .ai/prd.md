@@ -54,7 +54,7 @@
 
 ### 5.3. AI Flashcard Generation
 
-- **Input limits:** The text area accepts between 5,000 and 10,000 characters of source text (copy-paste).
+- **Input limits:** The text area accepts between 20 and 10,000 characters of source text (copy-paste).
 - **Instructions (Prompt):** An optional field below the text input allowing users to add a short instruction for the AI (e.g., "Focus only on dates and names").
 - **UI/UX:** A creation animation is displayed during the API request (called from the frontend). The source text is **not** saved in the database after successful generation.
 - **User limits:** Presented in a user-friendly format, such as a progress bar or a clear message (e.g., "You can generate 50 more flashcards this week"), avoiding technical terms like "API tokens".
@@ -126,7 +126,7 @@
 - **I want to** paste my study notes into a text box and click "Generate",
 - **So that** the AI can automatically extract key information into flashcards, saving me hours of manual work.
 - **Acceptance Criteria:**
-  - The text area accepts between 5,000 and 10,000 characters.
+  - The text area accepts between 20 and 10,000 characters.
   - An animation/loading state is shown while the frontend makes the API call to the AI model.
   - The pasted source text is _never_ saved to the database.
 

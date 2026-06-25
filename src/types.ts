@@ -89,7 +89,7 @@ export interface AiGenerationLogRow {
 export type PlanType = "free";
 
 /** AI models the application accepts for generation/approval. */
-export type AiModel = "gpt-4o-mini" | "claude-3-haiku";
+export type AiModel = "gpt-4o-mini";
 
 /** Supported source-text languages for AI generation (`auto` = auto-detect). */
 export type GenerationLanguage = "pl" | "en" | "auto";
@@ -392,7 +392,7 @@ export interface AiProposalCardDto {
  * call (not an application REST endpoint in the MVP).
  */
 export interface GenerateProposalsCommand {
-  /** 5,000–10,000 characters after trimming. */
+  /** 20–10,000 characters after trimming. */
   sourceText: string;
   /** Optional instruction, capped at 500 characters. Never persisted. */
   instructions?: string;
