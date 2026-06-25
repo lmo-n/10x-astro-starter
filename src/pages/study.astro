@@ -1,12 +1,15 @@
 ---
 import AppLayout from "@/layouts/AppLayout.astro";
 import DashboardHeader from "@/components/DashboardHeader.astro";
+import BackLink from "@/components/BackLink.astro";
 import StudySession from "@/components/StudySession.tsx";
 import { createClient } from "@/lib/supabase";
 import { getDueStudyQueue, StudyServiceError } from "@/lib/services/study.service";
 import { studyDueQuerySchema } from "@/lib/validation/study";
+import { getAvatarUrl } from "@/lib/utils";
 
 const { user } = Astro.locals;
+const avatarUrl = getAvatarUrl(user);
 
 // Parse the query string (e.g. `?deckId=…`); ignore empty values like the other
 // list pages. Invalid params surface as a friendly error rather than a crash.
@@ -41,18 +44,9 @@ const deckId = parsed.success ? parsed.data.deckId : undefined;
 ---
 
 <AppLayout title="Study">
-  <DashboardHeader email={user?.email} />
+  <DashboardHeader email={user?.email} avatarUrl={avatarUrl} />
 
-  <!-- Back link under the header -->
-  <a
-    href="/dashboard"
-    class="mb-6 inline-flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-900 dark:text-blue-100/60 dark:hover:text-white"
-  >
-    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-    </svg>
-    Back to decks
-  </a>
+  <BackLink />
 
   <div class="mb-8">
     <h1

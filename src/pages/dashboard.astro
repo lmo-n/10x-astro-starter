@@ -6,16 +6,11 @@ import ProfileStats from "@/components/ProfileStats.astro";
 import { createClient } from "@/lib/supabase";
 import { getDueStudyQueue } from "@/lib/services/study.service";
 import { getProfile } from "@/lib/services/profile.service";
+import { getAvatarUrl } from "@/lib/utils";
 import type { GetProfileResponseDto } from "@/types";
 
 const { user } = Astro.locals;
-const userMetadata: Record<string, unknown> = user?.user_metadata ?? {};
-const avatarUrl =
-  typeof userMetadata.avatar_url === "string"
-    ? userMetadata.avatar_url
-    : typeof userMetadata.picture === "string"
-      ? userMetadata.picture
-      : null;
+const avatarUrl = getAvatarUrl(user);
 
 const supabase = createClient(Astro.request.headers, Astro.cookies);
 let dueCount = 0;

@@ -99,7 +99,7 @@ npx supabase start
 4. Copy the credentials printed by the CLI into your `.env` and `.dev.vars`:
 
 ```
-SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_URL=http://127.0.0.1:64323
 SUPABASE_KEY=<anon key from CLI output>
 ```
 

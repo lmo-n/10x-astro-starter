@@ -1,22 +1,17 @@
 ---
 import AppLayout from "@/layouts/AppLayout.astro";
 import DashboardHeader from "@/components/DashboardHeader.astro";
+import BackLink from "@/components/BackLink.astro";
 import FlashcardList from "@/components/FlashcardList.tsx";
 import { createClient } from "@/lib/supabase";
 import { getDeck, DeckServiceError } from "@/lib/services/deck.service";
 import { getFlashcards } from "@/lib/services/flashcard.service";
 import { deckIdParamSchema } from "@/lib/validation/decks";
+import { getAvatarUrl } from "@/lib/utils";
 import type { DeckDto, FlashcardDto } from "@/types";
 
 const { user } = Astro.locals;
-
-const userMetadata = (user?.user_metadata ?? {}) as Record<string, unknown>;
-const avatarUrl =
-  typeof userMetadata.avatar_url === "string"
-    ? userMetadata.avatar_url
-    : typeof userMetadata.picture === "string"
-      ? userMetadata.picture
-      : null;
+const avatarUrl = getAvatarUrl(user);
 
 // Validate the `deckId` path parameter as a UUID.
 const params = deckIdParamSchema.safeParse(Astro.params);
@@ -53,16 +48,7 @@ if (notFound) {
 <AppLayout title={deck ? deck.name : "Deck"}>
   <DashboardHeader email={user?.email} avatarUrl={avatarUrl} />
 
-  <!-- Back link under the header -->
-  <a
-    href="/dashboard"
-    class="mb-6 inline-flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-900 dark:text-blue-100/60 dark:hover:text-white"
-  >
-    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-    </svg>
-    Back to decks
-  </a>
+  <BackLink />
 
   {
     notFound ? (

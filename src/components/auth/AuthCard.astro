@@ -1,0 +1,21 @@
+---
+import { cn } from "@/lib/utils";
+
+interface Props {
+  /** Centers all card content (used on the confirm-email page). */
+  center?: boolean;
+}
+
+const { center = false } = Astro.props;
+---
+
+<div class="bg-cosmic flex min-h-screen items-center justify-center p-4">
+  <div
+    class:list={cn(
+      "w-full max-w-sm rounded-2xl border border-white/10 bg-white/10 p-8 text-white backdrop-blur-xl",
+      center && "text-center",
+    )}
+  >
+    <slot />
+  </div>
+</div>
