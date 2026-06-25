@@ -24,7 +24,7 @@ export const generateFlashcardsSchema = z.strictObject({
     .max(INSTRUCTIONS_MAX_LENGTH, `Instructions must be at most ${INSTRUCTIONS_MAX_LENGTH} characters.`)
     .optional(),
   language: z.enum(["pl", "en", "auto"]).default("auto"),
-  model: z.enum(["gpt-4o-mini"]).default("gpt-4o-mini"),
+  model: z.enum(["openai/gpt-4o-mini", "anthropic/claude-3-haiku"]).default("openai/gpt-4o-mini"),
 });
 
 /**

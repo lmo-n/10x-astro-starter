@@ -89,7 +89,7 @@ export interface AiGenerationLogRow {
 export type PlanType = "free";
 
 /** AI models the application accepts for generation/approval. */
-export type AiModel = "gpt-4o-mini";
+export type AiModel = "openai/gpt-4o-mini" | "anthropic/claude-3-haiku";
 
 /** Supported source-text languages for AI generation (`auto` = auto-detect). */
 export type GenerationLanguage = "pl" | "en" | "auto";

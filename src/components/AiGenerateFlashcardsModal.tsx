@@ -35,7 +35,7 @@ export default function AiGenerateFlashcardsModal({ deckId, open, onClose, onCre
   const [sourceText, setSourceText] = useState("");
   const [instructions, setInstructions] = useState("");
   const [language, setLanguage] = useState<"auto" | "pl" | "en">("auto");
-  const [model] = useState<"gpt-4o-mini">("gpt-4o-mini");
+  const [model, setModel] = useState<"openai/gpt-4o-mini" | "anthropic/claude-3-haiku">("openai/gpt-4o-mini");
   const [cards, setCards] = useState<ProposedCard[]>([]);
   const [proposedCount, setProposedCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
@@ -46,7 +46,6 @@ export default function AiGenerateFlashcardsModal({ deckId, open, onClose, onCre
     setSourceText("");
     setInstructions("");
     setLanguage("auto");
-    setModel("gpt-4o-mini");
     setCards([]);
     setProposedCount(0);
     setErrorMessage("");
@@ -234,9 +233,9 @@ export default function AiGenerateFlashcardsModal({ deckId, open, onClose, onCre
               />
             </div>
 
-            {/* Language selector */}
-            <div className="mb-6">
-              <div className="max-w-xs">
+            {/* Language + model selectors */}
+            <div className="mb-6 grid grid-cols-2 gap-4">
+              <div>
                 <label
                   htmlFor="ai-language"
                   className="mb-1 block text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-blue-100/40"
@@ -254,6 +253,23 @@ export default function AiGenerateFlashcardsModal({ deckId, open, onClose, onCre
                   <option value="auto">Auto-detect</option>
                   <option value="pl">Polish</option>
                   <option value="en">English</option>
+                </select>
+              </div>
+              <div>
+                <label
+                  htmlFor="ai-model"
+                  className="mb-1 block text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-blue-100/40"
+                >
+                  Model
+                </label>
+                <select
+                  id="ai-model"
+                  value={model}
+                  onChange={(e) => setModel(e.target.value as typeof model)}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-blue-500/50 focus:outline-none dark:border-white/20 dark:bg-gray-800 dark:text-white dark:focus:ring-blue-400/50"
+                >
+                  <option value="openai/gpt-4o-mini">GPT-4o mini</option>
+                  <option value="anthropic/claude-3-haiku">Claude 3 Haiku</option>
                 </select>
               </div>
             </div>
