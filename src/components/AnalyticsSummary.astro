@@ -1,0 +1,97 @@
+---
+import type { AnalyticsSummaryDto } from "@/types";
+
+interface Props {
+  data: AnalyticsSummaryDto;
+}
+
+const { data } = Astro.props;
+
+const acceptancePct = Math.round(data.aiAcceptanceRate * 100);
+const adoptionPct = Math.round(data.aiAdoptionRate * 100);
+
+// Only render if there is meaningful data to show.
+const hasData = data.proposedCardsCount > 0 || data.totalFlashcardsCount > 0;
+---
+
+{
+  hasData && (
+    <div class="mb-8 grid grid-cols-2 gap-3">
+      <!-- AI Acceptance Rate -->
+      <div class="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-white/10 dark:bg-white/5">
+        <div class="mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-300">
+          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+        </div>
+        <p class="text-2xl font-bold text-gray-900 dark:text-white">{acceptancePct}%</p>
+        <div class="mt-0.5 flex items-center gap-1">
+          <p class="text-xs text-gray-500 dark:text-blue-100/60">
+            AI acceptance rate
+            <span class="ml-1 text-gray-400 dark:text-blue-100/40">
+              ({data.savedAiCardsCount} / {data.proposedCardsCount})
+            </span>
+          </p>
+          <div class="group relative flex shrink-0 items-center">
+            <svg class="h-3.5 w-3.5 cursor-help text-gray-400 dark:text-blue-100/30" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div class="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-56 -translate-x-1/2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 dark:border-white/10 dark:bg-gray-800 dark:text-blue-100/80">
+              How many of the AI-proposed flashcards you actually saved. High rate = AI suggestions were relevant to your study material.
+              <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-200 dark:border-t-white/10"></div>
+            </div>
+          </div>
+        </div>
+        <div class="mt-2 h-1 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
+          <div
+            class={`h-1 rounded-full transition-all ${acceptancePct >= 75 ? "bg-emerald-400" : acceptancePct >= 50 ? "bg-amber-400" : "bg-red-400"}`}
+            style={`width: ${acceptancePct}%`}
+          />
+        </div>
+      </div>
+
+      <!-- AI Adoption Rate -->
+      <div class="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-white/10 dark:bg-white/5">
+        <div class="mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-300">
+          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+            />
+          </svg>
+        </div>
+        <p class="text-2xl font-bold text-gray-900 dark:text-white">{adoptionPct}%</p>
+        <div class="mt-0.5 flex items-center gap-1">
+          <p class="text-xs text-gray-500 dark:text-blue-100/60">
+            AI adoption rate
+            <span class="ml-1 text-gray-400 dark:text-blue-100/40">
+              ({data.aiCreatedFlashcardsCount} / {data.totalFlashcardsCount})
+            </span>
+          </p>
+          <div class="group relative flex shrink-0 items-center">
+            <svg class="h-3.5 w-3.5 cursor-help text-gray-400 dark:text-blue-100/30" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div class="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-56 -translate-x-1/2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 dark:border-white/10 dark:bg-gray-800 dark:text-blue-100/80">
+              What share of all your flashcards were created by AI (vs. typed manually). High rate = you rely on AI generation as your main study tool.
+              <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-200 dark:border-t-white/10"></div>
+            </div>
+          </div>
+        </div>
+        <div class="mt-2 h-1 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
+          <div
+            class={`h-1 rounded-full transition-all ${adoptionPct >= 75 ? "bg-emerald-400" : adoptionPct >= 50 ? "bg-amber-400" : "bg-red-400"}`}
+            style={`width: ${adoptionPct}%`}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}

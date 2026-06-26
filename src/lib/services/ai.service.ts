@@ -2,14 +2,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   AiGenerationLogListItemDto,
   AiGenerationLogRow,
+  AnalyticsSummaryDto,
+  GetAnalyticsSummaryResponseDto,
   ListGenerationLogsResponseDto,
   PaginationDto,
   SortOrder,
 } from "@/types";
-import type { ListGenerationLogsInput } from "@/lib/validation/ai";
+import type { AnalyticsSummaryInput, ListGenerationLogsInput } from "@/lib/validation/ai";
 
 /** Error codes surfaced by the AI service so the route can map them to HTTP. */
-export type AiServiceErrorCode = "AI_LIST_FAILED" | "INVALID_QUERY";
+export type AiServiceErrorCode = "AI_LIST_FAILED" | "ANALYTICS_FAILED" | "DECK_NOT_FOUND" | "INVALID_QUERY";
 
 /**
  * Domain error thrown by the AI service. The `code` is mapped to an HTTP
@@ -171,4 +173,99 @@ export async function listGenerationLogs(
     data: pageRows.map(toListItemDto),
     pagination,
   };
+}
+
+// -----------------------------------------------------------------------------
+// Analytics summary (GET /api/analytics/summary)
+// -----------------------------------------------------------------------------
+
+/**
+ * Compute MVP success-metric aggregates for the authenticated user.
+ *
+ * Runs a deck ownership check (when `deckId` is supplied) plus four parallel
+ * queries — two aggregate fetches from `ai_generation_logs` and two count
+ * queries on `flashcards` — to minimise latency.
+ *
+ * @param supabase Authenticated Supabase SSR client.
+ * @param userId   Owner id, always derived from the session.
+ * @param query    Validated query parameters.
+ * @throws {AiServiceError} `DECK_NOT_FOUND` when `deckId` is not owned by the user;
+ *         `ANALYTICS_FAILED` for any query failure.
+ */
+export async function getAnalyticsSummary(
+  supabase: SupabaseClient,
+  userId: string,
+  query: AnalyticsSummaryInput,
+): Promise<GetAnalyticsSummaryResponseDto> {
+  const { deckId, from, to } = query;
+
+  // 1. Verify deck ownership when a deckId filter is supplied.
+  if (deckId) {
+    const { count, error } = await supabase
+      .from("decks")
+      .select("id", { count: "exact", head: true })
+      .eq("id", deckId)
+      .eq("user_id", userId);
+
+    if (error) {
+      throw new AiServiceError("ANALYTICS_FAILED", "Failed to verify deck ownership.", { cause: error });
+    }
+    if (!count) {
+      throw new AiServiceError("DECK_NOT_FOUND", "Deck not found.");
+    }
+  }
+
+  // Helper: apply shared date filters to any Supabase query builder.
+  function applyDateFilters<T extends ReturnType<typeof supabase.from>>(builder: T): T {
+    let b = builder as unknown as ReturnType<typeof supabase.from>;
+    if (from) b = b.gte("created_at", `${from}T00:00:00.000Z`);
+    if (to) b = b.lte("created_at", `${to}T23:59:59.999Z`);
+    return b as unknown as T;
+  }
+
+  // 2. Build the four parallel queries.
+  let logsQuery = supabase
+    .from("ai_generation_logs")
+    .select("proposed_cards_count, saved_cards_count")
+    .eq("user_id", userId);
+  if (deckId) logsQuery = logsQuery.eq("deck_id", deckId);
+  logsQuery = applyDateFilters(logsQuery);
+
+  let totalCardsQuery = supabase.from("flashcards").select("id", { count: "exact", head: true }).eq("user_id", userId);
+  if (deckId) totalCardsQuery = totalCardsQuery.eq("deck_id", deckId);
+  totalCardsQuery = applyDateFilters(totalCardsQuery);
+
+  let aiCardsQuery = supabase
+    .from("flashcards")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("created_by_ai", true);
+  if (deckId) aiCardsQuery = aiCardsQuery.eq("deck_id", deckId);
+  aiCardsQuery = applyDateFilters(aiCardsQuery);
+
+  const [logsResult, totalCardsResult, aiCardsResult] = await Promise.all([logsQuery, totalCardsQuery, aiCardsQuery]);
+
+  const queryError = logsResult.error ?? totalCardsResult.error ?? aiCardsResult.error;
+  if (queryError) {
+    throw new AiServiceError("ANALYTICS_FAILED", "Failed to load analytics data.", { cause: queryError });
+  }
+
+  // 3. Sum generation log counts in JS (no PostgREST aggregate needed).
+  const logRows = (logsResult.data ?? []) as { proposed_cards_count: number; saved_cards_count: number }[];
+  const proposedCardsCount = logRows.reduce((sum, r) => sum + r.proposed_cards_count, 0);
+  const savedAiCardsCount = logRows.reduce((sum, r) => sum + r.saved_cards_count, 0);
+
+  const totalFlashcardsCount = totalCardsResult.count ?? 0;
+  const aiCreatedFlashcardsCount = aiCardsResult.count ?? 0;
+
+  const analytics: AnalyticsSummaryDto = {
+    aiAcceptanceRate: proposedCardsCount > 0 ? savedAiCardsCount / proposedCardsCount : 0,
+    aiAdoptionRate: totalFlashcardsCount > 0 ? aiCreatedFlashcardsCount / totalFlashcardsCount : 0,
+    proposedCardsCount,
+    savedAiCardsCount,
+    totalFlashcardsCount,
+    aiCreatedFlashcardsCount,
+  };
+
+  return { analytics };
 }

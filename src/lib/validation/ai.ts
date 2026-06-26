@@ -70,3 +70,19 @@ export const listGenerationLogsQuerySchema = z.object({
 
 /** Parsed and validated query parameters for listing generation logs. */
 export type ListGenerationLogsInput = z.infer<typeof listGenerationLogsQuerySchema>;
+
+/**
+ * Validation schema for `GET /api/analytics/summary`.
+ *
+ * All three parameters are optional:
+ * - `deckId`: UUID to scope both log and flashcard aggregates to one deck.
+ * - `from` / `to`: `YYYY-MM-DD` date range applied to `created_at`.
+ */
+export const analyticsSummaryQuerySchema = z.object({
+  deckId: z.string().uuid("deckId must be a valid UUID.").optional(),
+  from: dateStringSchema.optional(),
+  to: dateStringSchema.optional(),
+});
+
+/** Parsed and validated query parameters for the analytics summary. */
+export type AnalyticsSummaryInput = z.infer<typeof analyticsSummaryQuerySchema>;

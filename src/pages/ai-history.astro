@@ -3,25 +3,31 @@ import AppLayout from "@/layouts/AppLayout.astro";
 import DashboardHeader from "@/components/DashboardHeader.astro";
 import BackLink from "@/components/BackLink.astro";
 import AiGenerationHistory from "@/components/AiGenerationHistory.tsx";
+import AnalyticsSummary from "@/components/AnalyticsSummary.astro";
 import { createClient } from "@/lib/supabase";
-import { listGenerationLogs } from "@/lib/services/ai.service";
+import { listGenerationLogs, getAnalyticsSummary } from "@/lib/services/ai.service";
 import { getAvatarUrl } from "@/lib/utils";
-import type { AiGenerationLogListItemDto, PaginationDto } from "@/types";
+import type { AiGenerationLogListItemDto, AnalyticsSummaryDto, PaginationDto } from "@/types";
 
 const { user } = Astro.locals;
 const avatarUrl = getAvatarUrl(user);
 
 let initialLogs: AiGenerationLogListItemDto[] = [];
 let initialPagination: PaginationDto = { nextCursor: null, hasMore: false };
+let analyticsData: AnalyticsSummaryDto | null = null;
 
 const supabase = createClient(Astro.request.headers, Astro.cookies);
 if (supabase && user) {
-  try {
-    const result = await listGenerationLogs(supabase, user.id, { limit: 20, sort: "createdAt", order: "desc" });
-    initialLogs = result.data;
-    initialPagination = result.pagination;
-  } catch {
-    // Non-fatal: the client island will show its own error state if needed.
+  const [logsResult, analyticsResult] = await Promise.allSettled([
+    listGenerationLogs(supabase, user.id, { limit: 20, sort: "createdAt", order: "desc" }),
+    getAnalyticsSummary(supabase, user.id, {}),
+  ]);
+  if (logsResult.status === "fulfilled") {
+    initialLogs = logsResult.value.data;
+    initialPagination = logsResult.value.pagination;
+  }
+  if (analyticsResult.status === "fulfilled") {
+    analyticsData = analyticsResult.value.analytics;
   }
 }
 ---
@@ -35,5 +41,6 @@ if (supabase && user) {
       A log of all your AI flashcard generation sessions with acceptance rate metrics.
     </p>
   </div>
+  {analyticsData && <AnalyticsSummary data={analyticsData} />}
   <AiGenerationHistory client:load initialLogs={initialLogs} initialPagination={initialPagination} />
 </AppLayout>
