@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import type { FlashcardDto } from "@/types";
+import type { AiCreditsDto, FlashcardDto } from "@/types";
 import { SOURCE_TEXT_MIN_LENGTH, SOURCE_TEXT_MAX_LENGTH, INSTRUCTIONS_MAX_LENGTH } from "@/lib/validation/ai";
 
 interface Props {
@@ -39,6 +39,7 @@ export default function AiGenerateFlashcardsModal({ deckId, open, onClose, onCre
   const [cards, setCards] = useState<ProposedCard[]>([]);
   const [proposedCount, setProposedCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
+  const [aiCredits, setAiCredits] = useState<AiCreditsDto | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const close = useCallback(() => {
@@ -49,8 +50,22 @@ export default function AiGenerateFlashcardsModal({ deckId, open, onClose, onCre
     setCards([]);
     setProposedCount(0);
     setErrorMessage("");
+    setAiCredits(null);
     onClose();
   }, [onClose]);
+
+  // Fetch AI credit status whenever the modal opens.
+  useEffect(() => {
+    if (!open) return;
+    void fetch("/api/me/ai-credits")
+      .then((res) => res.json() as Promise<{ aiCredits?: AiCreditsDto }>)
+      .then((body) => {
+        if (body.aiCredits) setAiCredits(body.aiCredits);
+      })
+      .catch(() => {
+        /* non-fatal: credits UI degrades gracefully */
+      });
+  }, [open]);
 
   // Focus source text area when modal opens.
   useEffect(() => {
@@ -151,7 +166,8 @@ export default function AiGenerateFlashcardsModal({ deckId, open, onClose, onCre
   if (!open) return null;
 
   const sourceLen = sourceText.length;
-  const canGenerate = sourceLen >= SOURCE_TEXT_MIN_LENGTH && sourceLen <= SOURCE_TEXT_MAX_LENGTH;
+  const creditsExhausted = aiCredits !== null && aiCredits.remaining === 0;
+  const canGenerate = sourceLen >= SOURCE_TEXT_MIN_LENGTH && sourceLen <= SOURCE_TEXT_MAX_LENGTH && !creditsExhausted;
   const selectedCards = cards.filter((c) => !c.deleted);
 
   /** Character-count indicator colour for the source text area. */
@@ -273,6 +289,36 @@ export default function AiGenerateFlashcardsModal({ deckId, open, onClose, onCre
                 </select>
               </div>
             </div>
+
+            {/* AI credits bar */}
+            {aiCredits && (
+              <div className="mb-5 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-gray-600 dark:text-blue-100/70">{aiCredits.message}</span>
+                  <span className="shrink-0 text-xs tabular-nums text-gray-400 dark:text-blue-100/40">
+                    {aiCredits.used} / {aiCredits.limit}
+                  </span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
+                  <div
+                    className={[
+                      "h-1.5 rounded-full transition-all",
+                      aiCredits.remaining === 0
+                        ? "bg-red-400 dark:bg-red-400"
+                        : aiCredits.remaining / aiCredits.limit < 0.2
+                          ? "bg-amber-400 dark:bg-amber-400"
+                          : "bg-emerald-400 dark:bg-emerald-400",
+                    ].join(" ")}
+                    style={{ width: `${Math.max(0, Math.round((aiCredits.remaining / aiCredits.limit) * 100))}%` }}
+                  />
+                </div>
+                {creditsExhausted && (
+                  <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">
+                    Generation is unavailable until your credits reset on {aiCredits.resetDate}.
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="flex justify-end gap-2">
               <button

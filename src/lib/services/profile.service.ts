@@ -1,5 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { GetProfileResponseDto, ProfileDto, ProfileStatsDto, UsersProfileRow } from "@/types";
+import type {
+  GetAiCreditsResponseDto,
+  GetProfileResponseDto,
+  ProfileDto,
+  ProfileStatsDto,
+  UsersProfileRow,
+} from "@/types";
 import { DECK_LIMIT } from "@/lib/services/deck.service";
 
 /** Error codes surfaced by the profile service so the route can map them to HTTP. */
@@ -97,4 +103,52 @@ export async function getProfile(supabase: SupabaseClient, userId: string): Prom
   };
 
   return { profile, stats };
+}
+
+/**
+ * Fetch the authenticated user's AI credit status for the generation UI.
+ *
+ * Runs a single lightweight `SELECT` with only the three credit columns —
+ * no aggregate counts needed.
+ *
+ * @param supabase Authenticated Supabase SSR client (RLS scopes reads to the user).
+ * @param userId   Owner id, always derived from the session — never the request.
+ * @throws {ProfileServiceError} `PROFILE_NOT_FOUND` when no profile row exists;
+ *         `PROFILE_FETCH_FAILED` for any query failure.
+ */
+export async function getAiCredits(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<GetAiCreditsResponseDto> {
+  const { data, error } = await supabase
+    .from("users_profiles")
+    .select("ai_credits_limit, ai_credits_used, ai_credits_reset_date")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new ProfileServiceError("PROFILE_FETCH_FAILED", "Failed to load AI credits.", { cause: error });
+  }
+
+  if (!data) {
+    throw new ProfileServiceError("PROFILE_NOT_FOUND", "Profile not found.");
+  }
+
+  const limit: number = data.ai_credits_limit;
+  const used: number = data.ai_credits_used;
+  const remaining = Math.max(0, limit - used);
+  const message =
+    remaining === 0
+      ? "You have used all your AI generations for this period."
+      : `You can generate ${remaining} more flashcard${remaining === 1 ? "" : "s"} this period.`;
+
+  return {
+    aiCredits: {
+      limit,
+      used,
+      remaining,
+      resetDate: data.ai_credits_reset_date,
+      message,
+    },
+  };
 }
