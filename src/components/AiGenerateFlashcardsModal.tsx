@@ -281,7 +281,9 @@ export default function AiGenerateFlashcardsModal({ deckId, open, onClose, onCre
                 <select
                   id="ai-model"
                   value={model}
-                  onChange={(e) => setModel(e.target.value as typeof model)}
+                  onChange={(e) => {
+                    setModel(e.target.value as typeof model);
+                  }}
                   className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-blue-500/50 focus:outline-none dark:border-white/20 dark:bg-gray-800 dark:text-white dark:focus:ring-blue-400/50"
                 >
                   <option value="openai/gpt-4o-mini">GPT-4o mini</option>
@@ -295,7 +297,7 @@ export default function AiGenerateFlashcardsModal({ deckId, open, onClose, onCre
               <div className="mb-5 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-white/10 dark:bg-white/5">
                 <div className="mb-1.5 flex items-center justify-between gap-2">
                   <span className="text-xs font-medium text-gray-600 dark:text-blue-100/70">{aiCredits.message}</span>
-                  <span className="shrink-0 text-xs tabular-nums text-gray-400 dark:text-blue-100/40">
+                  <span className="shrink-0 text-xs text-gray-400 tabular-nums dark:text-blue-100/40">
                     {aiCredits.used} / {aiCredits.limit}
                   </span>
                 </div>

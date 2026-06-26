@@ -3,6 +3,7 @@ import AppLayout from "@/layouts/AppLayout.astro";
 import DashboardHeader from "@/components/DashboardHeader.astro";
 import DeckList from "@/components/DeckList.astro";
 import ProfileStats from "@/components/ProfileStats.astro";
+import AiGenerationHistory from "@/components/AiGenerationHistory.tsx";
 import { createClient } from "@/lib/supabase";
 import { getDueStudyQueue } from "@/lib/services/study.service";
 import { getProfile } from "@/lib/services/profile.service";
@@ -32,6 +33,7 @@ if (supabase && user) {
 <AppLayout title="Dashboard">
   <DashboardHeader email={user?.email} avatarUrl={avatarUrl} />
   {profileData && <ProfileStats data={profileData} />}
+  <AiGenerationHistory client:load />
   <div class="mb-6 flex items-center justify-between gap-4">
     <h2 class="text-sm font-semibold text-gray-900 dark:text-white">My Decks</h2>
     {

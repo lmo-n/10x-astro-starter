@@ -44,3 +44,30 @@ export const approveAiFlashcardsSchema = z.strictObject({
     )
     .min(1, "At least one card must be approved."),
 });
+
+/** ISO date string `YYYY-MM-DD`. */
+const dateStringSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format.");
+
+/**
+ * Validation schema for the `GET /api/ai/generation-logs` query string.
+ *
+ * - `limit`: coerced integer, default `20`, capped at `100`.
+ * - `cursor`: opaque pagination token (base64-JSON keyset anchor).
+ * - `deckId`: optional UUID filter.
+ * - `from` / `to`: optional `YYYY-MM-DD` date range (inclusive).
+ * - `sort`: only `"createdAt"` is supported.
+ * - `order`: `"asc" | "desc"`, default `"desc"`.
+ */
+export const listGenerationLogsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  cursor: z.string().min(1).optional(),
+  deckId: z.string().uuid("deckId must be a valid UUID.").optional(),
+  from: dateStringSchema.optional(),
+  to: dateStringSchema.optional(),
+  sort: z.enum(["createdAt"]).default("createdAt"),
+  order: z.enum(["asc", "desc"]).default("desc"),
+});
+
+/** Parsed and validated query parameters for listing generation logs. */
+export type ListGenerationLogsInput = z.infer<typeof listGenerationLogsQuerySchema>;
+

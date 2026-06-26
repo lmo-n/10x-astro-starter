@@ -116,10 +116,7 @@ export async function getProfile(supabase: SupabaseClient, userId: string): Prom
  * @throws {ProfileServiceError} `PROFILE_NOT_FOUND` when no profile row exists;
  *         `PROFILE_FETCH_FAILED` for any query failure.
  */
-export async function getAiCredits(
-  supabase: SupabaseClient,
-  userId: string
-): Promise<GetAiCreditsResponseDto> {
+export async function getAiCredits(supabase: SupabaseClient, userId: string): Promise<GetAiCreditsResponseDto> {
   const { data, error } = await supabase
     .from("users_profiles")
     .select("ai_credits_limit, ai_credits_used, ai_credits_reset_date")

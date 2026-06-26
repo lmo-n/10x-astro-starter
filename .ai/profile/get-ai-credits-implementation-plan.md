@@ -79,10 +79,7 @@ Existing service error types in `profile.service.ts` are reused:
 Add `getAiCredits` to `src/lib/services/profile.service.ts`:
 
 ```ts
-export async function getAiCredits(
-  supabase: SupabaseClient,
-  userId: string
-): Promise<GetAiCreditsResponseDto>
+export async function getAiCredits(supabase: SupabaseClient, userId: string): Promise<GetAiCreditsResponseDto>;
 ```
 
 - Selects only `ai_credits_limit`, `ai_credits_used`, `ai_credits_reset_date`.
@@ -109,7 +106,7 @@ export async function getAiCredits(
 
 ## 9. Files Affected
 
-| File | Change |
-|---|---|
+| File                                  | Change                      |
+| ------------------------------------- | --------------------------- |
 | `src/lib/services/profile.service.ts` | Add `getAiCredits` function |
-| `src/pages/api/me/ai-credits.ts` | New route file |
+| `src/pages/api/me/ai-credits.ts`      | New route file              |
