@@ -70,4 +70,3 @@ export const listGenerationLogsQuerySchema = z.object({
 
 /** Parsed and validated query parameters for listing generation logs. */
 export type ListGenerationLogsInput = z.infer<typeof listGenerationLogsQuerySchema>;
-

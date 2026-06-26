@@ -1,0 +1,39 @@
+---
+import AppLayout from "@/layouts/AppLayout.astro";
+import DashboardHeader from "@/components/DashboardHeader.astro";
+import BackLink from "@/components/BackLink.astro";
+import AiGenerationHistory from "@/components/AiGenerationHistory.tsx";
+import { createClient } from "@/lib/supabase";
+import { listGenerationLogs } from "@/lib/services/ai.service";
+import { getAvatarUrl } from "@/lib/utils";
+import type { AiGenerationLogListItemDto, PaginationDto } from "@/types";
+
+const { user } = Astro.locals;
+const avatarUrl = getAvatarUrl(user);
+
+let initialLogs: AiGenerationLogListItemDto[] = [];
+let initialPagination: PaginationDto = { nextCursor: null, hasMore: false };
+
+const supabase = createClient(Astro.request.headers, Astro.cookies);
+if (supabase && user) {
+  try {
+    const result = await listGenerationLogs(supabase, user.id, { limit: 20, sort: "createdAt", order: "desc" });
+    initialLogs = result.data;
+    initialPagination = result.pagination;
+  } catch {
+    // Non-fatal: the client island will show its own error state if needed.
+  }
+}
+---
+
+<AppLayout title="AI Generation History">
+  <DashboardHeader email={user?.email} avatarUrl={avatarUrl} />
+  <BackLink />
+  <div class="mb-6">
+    <h2 class="text-xl font-bold text-gray-900 dark:text-white">AI Generation History</h2>
+    <p class="mt-1 text-sm text-gray-500 dark:text-blue-100/60">
+      A log of all your AI flashcard generation sessions with acceptance rate metrics.
+    </p>
+  </div>
+  <AiGenerationHistory client:load initialLogs={initialLogs} initialPagination={initialPagination} />
+</AppLayout>
