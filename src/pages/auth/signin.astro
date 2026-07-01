@@ -10,14 +10,16 @@ const error = Astro.url.searchParams.get("error");
 <Layout title="Sign in">
   <AuthCard>
     <h1
-      class="mb-6 bg-linear-to-r from-blue-200 to-purple-200 bg-clip-text text-center text-2xl font-bold text-transparent"
+      class="mb-6 bg-linear-to-r from-blue-600 to-purple-600 bg-clip-text text-center text-2xl font-bold text-transparent dark:from-blue-200 dark:to-purple-200"
     >
       Sign in
     </h1>
     <GoogleSignInButton />
     <SignInForm serverError={error} client:load />
-    <p class="mt-4 text-center text-sm text-blue-100/60">
-      Don't have an account? <a href="/auth/signup" class="text-purple-300 hover:underline">Sign up</a>
+    <p class="mt-4 text-center text-sm text-gray-500 dark:text-blue-100/60">
+      Don't have an account? <a href="/auth/signup" class="text-purple-600 hover:underline dark:text-purple-300"
+        >Sign up</a
+      >
     </p>
   </AuthCard>
 </Layout>

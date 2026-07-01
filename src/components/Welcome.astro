@@ -4,18 +4,22 @@ import Topbar from "@/components/Topbar.astro";
 
 <div class="bg-cosmic relative min-h-screen w-full overflow-hidden">
   <!-- Cosmic orbs -->
-  <div class="pointer-events-none absolute top-1/4 -left-24 h-87.5 w-87.5 rounded-full bg-purple-500/20 blur-[120px]">
-  </div>
-  <div class="pointer-events-none absolute top-2/3 -right-16 h-62.5 w-62.5 rounded-full bg-blue-500/15 blur-[100px]">
+  <div
+    class="pointer-events-none absolute top-1/4 -left-24 hidden h-87.5 w-87.5 rounded-full bg-purple-500/20 blur-[120px] dark:block"
+  >
   </div>
   <div
-    class="pointer-events-none absolute top-0 left-1/2 h-75 w-75 -translate-x-1/2 rounded-full bg-indigo-400/10 blur-[140px]"
+    class="pointer-events-none absolute top-2/3 -right-16 hidden h-62.5 w-62.5 rounded-full bg-blue-500/15 blur-[100px] dark:block"
+  >
+  </div>
+  <div
+    class="pointer-events-none absolute top-0 left-1/2 hidden h-75 w-75 -translate-x-1/2 rounded-full bg-indigo-400/10 blur-[140px] dark:block"
   >
   </div>
 
   <!-- Star field -->
   <div
-    class="pointer-events-none absolute inset-0"
+    class="pointer-events-none absolute inset-0 hidden dark:block"
     style="background-image: radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px), radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px), radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px); background-size: 200px 200px, 150px 150px, 100px 100px; background-position: 0 0, 40px 60px, 80px 30px;"
   >
   </div>
@@ -26,11 +30,11 @@ import Topbar from "@/components/Topbar.astro";
     <!-- Hero section -->
     <div class="mx-auto flex max-w-4xl flex-col items-center justify-center px-4 py-24 text-center sm:py-32 lg:py-40">
       <h1
-        class="mb-6 bg-linear-to-r from-blue-200 via-purple-200 to-pink-200 bg-clip-text text-5xl leading-tight font-bold text-transparent sm:text-6xl lg:text-7xl"
+        class="mb-6 bg-linear-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-5xl leading-tight font-bold text-transparent sm:text-6xl lg:text-7xl dark:from-blue-200 dark:via-purple-200 dark:to-pink-200"
       >
         10x Flashcards
       </h1>
-      <p class="mb-10 max-w-2xl text-lg text-blue-100/70 sm:text-xl">
+      <p class="mb-10 max-w-2xl text-lg text-gray-600 sm:text-xl dark:text-blue-100/70">
         Create decks, study smarter, and let AI generate flashcards for you.
       </p>
       <div class="flex flex-col gap-4 sm:flex-row">
@@ -42,7 +46,7 @@ import Topbar from "@/components/Topbar.astro";
         </a>
         <a
           href="/auth/signup"
-          class="inline-flex items-center justify-center rounded-lg border border-white/20 px-6 py-3 text-base font-medium text-white transition-colors hover:bg-white/10"
+          class="inline-flex items-center justify-center rounded-lg border border-gray-300 px-6 py-3 text-base font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-white/20 dark:text-white dark:hover:bg-white/10"
         >
           Sign Up
         </a>
@@ -51,7 +55,9 @@ import Topbar from "@/components/Topbar.astro";
 
     <!-- Feature cards -->
     <div class="mx-auto grid max-w-4xl grid-cols-1 gap-6 px-4 pb-24 sm:grid-cols-3">
-      <div class="rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
+      <div
+        class="rounded-xl border border-gray-200 bg-white/80 p-6 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/5"
+      >
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="24"
@@ -62,18 +68,20 @@ import Topbar from "@/components/Topbar.astro";
           stroke-width="2"
           stroke-linecap="round"
           stroke-linejoin="round"
-          class="mb-4 text-purple-300"
+          class="mb-4 text-purple-500 dark:text-purple-300"
         >
           <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
           <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
         </svg>
-        <h3 class="mb-2 text-lg font-semibold text-white">Build Your Decks</h3>
-        <p class="text-sm leading-relaxed text-blue-100/60">
+        <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">Build Your Decks</h3>
+        <p class="text-sm leading-relaxed text-gray-500 dark:text-blue-100/60">
           Organise your knowledge into decks and flashcards, with instant add and edit.
         </p>
       </div>
 
-      <div class="rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
+      <div
+        class="rounded-xl border border-gray-200 bg-white/80 p-6 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/5"
+      >
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="24"
@@ -84,19 +92,21 @@ import Topbar from "@/components/Topbar.astro";
           stroke-width="2"
           stroke-linecap="round"
           stroke-linejoin="round"
-          class="mb-4 text-purple-300"
+          class="mb-4 text-purple-500 dark:text-purple-300"
         >
           <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
           <polyline points="2 17 12 22 22 17"></polyline>
           <polyline points="2 12 12 17 22 12"></polyline>
         </svg>
-        <h3 class="mb-2 text-lg font-semibold text-white">AI Generation</h3>
-        <p class="text-sm leading-relaxed text-blue-100/60">
+        <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">AI Generation</h3>
+        <p class="text-sm leading-relaxed text-gray-500 dark:text-blue-100/60">
           Generate entire flashcard sets from any topic using AI, then review and approve.
         </p>
       </div>
 
-      <div class="rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
+      <div
+        class="rounded-xl border border-gray-200 bg-white/80 p-6 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/5"
+      >
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="24"
@@ -107,13 +117,13 @@ import Topbar from "@/components/Topbar.astro";
           stroke-width="2"
           stroke-linecap="round"
           stroke-linejoin="round"
-          class="mb-4 text-purple-300"
+          class="mb-4 text-purple-500 dark:text-purple-300"
         >
           <polyline points="16 18 22 12 16 6"></polyline>
           <polyline points="8 6 2 12 8 18"></polyline>
         </svg>
-        <h3 class="mb-2 text-lg font-semibold text-white">Track Progress</h3>
-        <p class="text-sm leading-relaxed text-blue-100/60">
+        <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">Track Progress</h3>
+        <p class="text-sm leading-relaxed text-gray-500 dark:text-blue-100/60">
           Study sessions track your results so you can focus on what needs the most work.
         </p>
       </div>

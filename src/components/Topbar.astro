@@ -1,4 +1,5 @@
 ---
+import ThemeToggle from "@/components/ThemeToggle";
 const { user } = Astro.locals;
 
 const userMetadata = (user?.user_metadata ?? {}) as Record<string, unknown>;
@@ -11,7 +12,7 @@ const avatarUrl =
 ---
 
 <div
-  class="mb-4 flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80"
+  class="mb-4 flex items-center justify-between rounded-xl border border-gray-200 bg-white/90 px-4 py-2 text-sm text-gray-700 backdrop-blur-sm dark:border-white/10 dark:bg-white/5 dark:text-white/80"
 >
   {
     user ? (
@@ -25,7 +26,7 @@ const avatarUrl =
               referrerpolicy="no-referrer"
             />
           ) : (
-            <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-blue-100/70">
+            <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-gray-400 dark:bg-white/10 dark:text-blue-100/70">
               <svg
                 class="h-3.5 w-3.5"
                 xmlns="http://www.w3.org/2000/svg"
@@ -42,14 +43,21 @@ const avatarUrl =
               </svg>
             </span>
           )}
-          <span class="text-blue-100/70">{user.email}</span>
+          <span class="text-gray-500 dark:text-blue-100/70">{user.email}</span>
         </div>
         <div class="flex items-center gap-3">
-          <a href="/dashboard" class="text-purple-300 transition-colors hover:text-purple-100 hover:underline">
+          <ThemeToggle client:only="react" />
+          <a
+            href="/dashboard"
+            class="text-purple-600 transition-colors hover:text-purple-800 hover:underline dark:text-purple-300 dark:hover:text-purple-100"
+          >
             Dashboard
           </a>
           <form method="POST" action="/api/auth/signout">
-            <button type="submit" class="text-purple-300 transition-colors hover:text-purple-100 hover:underline">
+            <button
+              type="submit"
+              class="text-purple-600 transition-colors hover:text-purple-800 hover:underline dark:text-purple-300 dark:hover:text-purple-100"
+            >
               Sign out
             </button>
           </form>
@@ -57,12 +65,19 @@ const avatarUrl =
       </>
     ) : (
       <>
-        <span class="text-blue-100/70">Not signed in</span>
-        <div class="flex gap-3">
-          <a href="/auth/signin" class="text-purple-300 transition-colors hover:text-purple-100 hover:underline">
+        <span class="text-gray-400 dark:text-blue-100/70">Not signed in</span>
+        <div class="flex items-center gap-3">
+          <ThemeToggle client:only="react" />
+          <a
+            href="/auth/signin"
+            class="text-purple-600 transition-colors hover:text-purple-800 hover:underline dark:text-purple-300 dark:hover:text-purple-100"
+          >
             Sign in
           </a>
-          <a href="/auth/signup" class="text-purple-300 transition-colors hover:text-purple-100 hover:underline">
+          <a
+            href="/auth/signup"
+            class="text-purple-600 transition-colors hover:text-purple-800 hover:underline dark:text-purple-300 dark:hover:text-purple-100"
+          >
             Sign up
           </a>
         </div>

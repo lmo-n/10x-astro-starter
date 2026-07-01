@@ -111,7 +111,11 @@
 }
 
 @utility bg-cosmic {
-  background-image: linear-gradient(to bottom, #0a0e1a, #0f1529, #0a0e1a);
+  background-image: linear-gradient(to bottom, #f8faff, #eef2ff, #f8faff);
+
+  :is(.dark &) {
+    background-image: linear-gradient(to bottom, #0a0e1a, #0f1529, #0a0e1a);
+  }
 }
 
 @layer base {
